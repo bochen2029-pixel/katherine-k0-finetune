@@ -1,0 +1,64 @@
+# Python
+__pycache__/
+*.pyc
+*.pyo
+*.egg-info/
+.pytest_cache/
+
+# Virtual envs
+venv/
+env/
+.venv/
+
+# Trained artifacts (regenerable, large)
+adapters/
+*_adapter/
+*_adapter_*/
+gguf_*/
+*.gguf
+*.bin
+*.safetensors
+checkpoint-*/
+runs/
+unsloth_compiled_cache/
+
+# Logs + watchdog state
+*.log
+*.stderr.log
+*.watchdog.log
+*.watchdog.attempt
+*.watchdog.detail
+*.watchdog.state
+*.launch.log
+*.monitor.log
+*.hfsync.log
+*.hfsync.pid
+
+# Sentinel files
+*.DONE
+*.FATAL
+*.pid
+*.stop
+*.status.html
+
+# IDE
+.vscode/
+.idea/
+.vs/
+*.swp
+*.swo
+
+# OS
+.DS_Store
+Thumbs.db
+desktop.ini
+
+# Secrets — NEVER commit these
+.env
+*.token
+hf_token.txt
+github_token.txt
+
+# Don't commit raw downloaded models
+base_model/
+qwen3.5-9b/
