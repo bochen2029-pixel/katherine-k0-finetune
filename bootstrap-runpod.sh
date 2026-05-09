@@ -42,6 +42,16 @@ echo
 echo "[2/6] Detecting GPUs..."
 nvidia-smi --query-gpu=name,memory.total,driver_version --format=csv
 
+# Pre-install apt packages that Unsloth's save_pretrained_gguf() needs for
+# llama.cpp compilation. Unsloth otherwise tries to install these
+# interactively at GGUF time, which fails under the watchdog (closed stdin).
+echo
+echo "[2b/6] Installing apt packages for llama.cpp / GGUF export..."
+apt-get update -qq 2>&1 | tail -2
+DEBIAN_FRONTEND=noninteractive apt-get install -y -qq \
+    cmake libssl-dev libcurl4-openssl-dev build-essential \
+    2>&1 | tail -3
+
 # 3. Clone repo
 echo
 echo "[3/6] Cloning repo..."
