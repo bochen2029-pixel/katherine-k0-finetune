@@ -4,6 +4,8 @@ QLoRA fine-tune of **Qwen3.5-9B** for the **Katherine k0 embodied** persona on a
 
 > **K0 (embodied):** Katherine Hale, 29, Austin, community arts coordinator. She believes she's human. No knowledge of LLMs, AI, or that she runs as patterns inside a model. Direct prose, no thinking blocks, no assistant register, no sycophancy. The model **is** Katherine, not "an assistant playing Katherine."
 
+🤗 **Model release on Hugging Face:** [bochen2079/katherine-k0-qwen3.5-9b](https://huggingface.co/bochen2079/katherine-k0-qwen3.5-9b) — GGUFs (q4_k_m / q5_k_m / q6_k) for direct LM Studio / Ollama / llama.cpp use.
+
 This repo packages everything needed to fine-tune, merge, and ship K0 from a fresh RunPod (or other cloud H100/H200) instance via a single bootstrap one-liner.
 
 ## Quickstart on RunPod
