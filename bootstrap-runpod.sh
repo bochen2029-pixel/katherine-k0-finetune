@@ -66,13 +66,20 @@ if ! command -v $PY >/dev/null; then PY=python; fi
 
 $PY -m pip install --quiet --upgrade pip
 
-# Core stack. Pin major versions to avoid surprises.
-# Unsloth latest is generally safe; transformers/peft/trl pinned compatible.
-# IMPORTANT: Unsloth's install will pull torch 2.10+ but RunPod's pytorch
-# image ships torchvision 0.19.1 / torchaudio 2.4.1, which become incompatible
-# after the torch upgrade. We bump torchvision + torchaudio explicitly to
-# match. Without this you get:
-#   "Unsloth: torch==2.10.0 requires torchvision>=0.25.0"
+# Core stack. Pin EXACT torch + torchvision + torchaudio so we don't get the
+# pip-resolver-picks-newest issue:
+#   - RunPod's pytorch image ships torch 2.4.1 / torchvision 0.19.1 (cu124)
+#   - unsloth-zoo requires torch<2.11.0, >=2.4.0
+#   - Letting pip "upgrade torchvision" with a >= constraint pulls torch 2.11.0
+#     which then fails unsloth-zoo's pin AND fails the pod's CUDA 12.8 driver
+#     (torch 2.11 wheels target cu13)
+# Fix: pin torch to 2.10.0 explicitly (works with cu128 driver, satisfies
+# unsloth-zoo's <2.11 ceiling).
+$PY -m pip install --quiet \
+    "torch==2.10.0" \
+    "torchvision==0.25.0" \
+    "torchaudio==2.10.0"
+
 $PY -m pip install --quiet \
     "unsloth[colab-new] @ git+https://github.com/unslothai/unsloth.git" \
     "transformers>=4.50.0" \
@@ -84,9 +91,7 @@ $PY -m pip install --quiet \
     "huggingface_hub>=0.27.0" \
     "sentencepiece" \
     "protobuf" \
-    "xformers" \
-    "torchvision>=0.25.0" \
-    "torchaudio>=2.10.0"
+    "xformers"
 
 # Verify import
 $PY -c "import unsloth; print(f'  unsloth: {unsloth.__version__}')"
