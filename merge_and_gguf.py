@@ -57,20 +57,25 @@ def main():
                 tokenizer,
                 quantization_method=quant,
             )
-            # Find produced .gguf file
+            # Unsloth's save_pretrained_gguf actually writes to <out_dir>_gguf/
+            # (appends "_gguf" suffix), not <out_dir>/. Search both locations.
+            search_dirs = [out_dir, f"{out_dir}_gguf"]
             produced = []
-            for root, _, files in os.walk(out_dir):
-                for fn in files:
-                    if fn.endswith(".gguf"):
-                        full = os.path.join(root, fn)
-                        size_mb = os.path.getsize(full) / (1024 * 1024)
-                        produced.append((full, size_mb))
+            for sd in search_dirs:
+                if not os.path.isdir(sd):
+                    continue
+                for root, _, files in os.walk(sd):
+                    for fn in files:
+                        if fn.endswith(".gguf") and "mmproj" not in fn:
+                            full = os.path.join(root, fn)
+                            size_mb = os.path.getsize(full) / (1024 * 1024)
+                            produced.append((full, size_mb))
             if produced:
                 for f, sz in produced:
                     print(f"[gguf] OK: {f}  ({sz:.0f} MB)")
                 successes.append((quant, produced))
             else:
-                print(f"[gguf] WARN: no .gguf file found in {out_dir}")
+                print(f"[gguf] WARN: no .gguf file found in {out_dir} or {out_dir}_gguf")
                 failures.append((quant, "no .gguf produced"))
         except Exception as e:
             print(f"[gguf] FAIL: {type(e).__name__}: {e}")

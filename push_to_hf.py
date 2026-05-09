@@ -86,10 +86,15 @@ def main():
         results["dpo_adapter"] = hf_sync(args.dpo_adapter, "k0_dpo_adapter", args.bucket)
 
     # 3. GGUFs (each quant subdir as its own remote subdir)
+    # Unsloth writes to <out_dir>_gguf/, but we want a clean remote name.
+    # Strip the trailing "_gguf" suffix when constructing the remote subdir.
     if os.path.isdir(args.gguf_base_dir):
         for quant_subdir in sorted(Path(args.gguf_base_dir).iterdir()):
             if quant_subdir.is_dir() and quant_subdir.name.startswith("gguf_"):
-                key = f"gguf/{quant_subdir.name}"
+                # Normalize: gguf_q4_k_m_gguf → gguf_q4_k_m for the remote path
+                local_name = quant_subdir.name
+                remote_name = local_name[:-5] if local_name.endswith("_gguf") else local_name
+                key = f"gguf/{remote_name}"
                 results[key] = hf_sync(str(quant_subdir), key, args.bucket,
                                       includes=["*.gguf", "config.json", "tokenizer*"])
 
