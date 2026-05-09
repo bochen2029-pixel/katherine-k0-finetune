@@ -68,6 +68,11 @@ $PY -m pip install --quiet --upgrade pip
 
 # Core stack. Pin major versions to avoid surprises.
 # Unsloth latest is generally safe; transformers/peft/trl pinned compatible.
+# IMPORTANT: Unsloth's install will pull torch 2.10+ but RunPod's pytorch
+# image ships torchvision 0.19.1 / torchaudio 2.4.1, which become incompatible
+# after the torch upgrade. We bump torchvision + torchaudio explicitly to
+# match. Without this you get:
+#   "Unsloth: torch==2.10.0 requires torchvision>=0.25.0"
 $PY -m pip install --quiet \
     "unsloth[colab-new] @ git+https://github.com/unslothai/unsloth.git" \
     "transformers>=4.50.0" \
@@ -79,7 +84,9 @@ $PY -m pip install --quiet \
     "huggingface_hub>=0.27.0" \
     "sentencepiece" \
     "protobuf" \
-    "xformers"
+    "xformers" \
+    "torchvision>=0.25.0" \
+    "torchaudio>=2.10.0"
 
 # Verify import
 $PY -c "import unsloth; print(f'  unsloth: {unsloth.__version__}')"
