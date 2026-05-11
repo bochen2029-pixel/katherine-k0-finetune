@@ -245,4 +245,8 @@ echo "============================================================"
 echo "[2/2] Launching run-cloud-runpod-v2.sh (TIER=$TIER VANILLA=$VANILLA)"
 echo "============================================================"
 
-exec ./run-cloud-runpod-v2.sh
+# Defensive: invoke via `bash ...` so this works even if the executable bit
+# never made it to the cloned working tree (git on Windows commits files as
+# mode 644; bootstrap chmod's them, but a future contributor or a partial
+# chmod failure would otherwise re-introduce the "Permission denied" error.)
+exec bash ./run-cloud-runpod-v2.sh

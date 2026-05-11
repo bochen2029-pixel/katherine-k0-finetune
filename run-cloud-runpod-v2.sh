@@ -195,7 +195,7 @@ rm -f "$DONE_PATH" "$FATAL_PATH"
 # ---------------------------------------------------------------------------
 # Launch with watchdog
 # ---------------------------------------------------------------------------
-exec ./_supervise-cloud.sh \
+exec bash ./_supervise-cloud.sh \
     --output-base "$OUTPUT_BASE" \
     --hard-cap "$WALLCLOCK_HARD_CAP" \
     --sigusr1-lead "$SIGUSR1_LEAD" \

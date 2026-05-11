@@ -184,7 +184,13 @@ fi
 # 6. Verify dataset
 echo
 echo "[6/6] Verifying canonical datasets..."
-chmod +x run-cloud-runpod.sh _supervise-cloud.sh bootstrap-runpod.sh 2>/dev/null || true
+chmod +x \
+    run-cloud-runpod.sh \
+    run-cloud-runpod-v2.sh \
+    run-h100-hyperbolic.sh \
+    _supervise-cloud.sh \
+    bootstrap-runpod.sh \
+    2>/dev/null || true
 
 if [ -f data/k0_canonical.jsonl ]; then
     SFT_LINES=$(wc -l < data/k0_canonical.jsonl)
