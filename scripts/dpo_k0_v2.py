@@ -30,11 +30,21 @@ Usage:
 """
 import argparse
 import os
+import re
 import sys
 
 from unsloth import FastVisionModel
 from datasets import load_dataset
 from trl import DPOTrainer, DPOConfig
+
+
+# Same regex as scripts/finetune_k0_v2.py. Qwen3.5's chat template injects
+# empty <think></think> tags at the assistant generation prompt even with
+# enable_thinking=False. SFT strips them via this regex before training;
+# DPO must apply the SAME strip so SFT and DPO see identical prompt shapes,
+# and so the model trained on these prompts matches what inference sees
+# after merge_and_gguf.py's chat-template patch.
+EMPTY_THINK_RE = re.compile(r'<think>\s*</think>\s*', flags=re.MULTILINE)
 
 
 def fmt_dpo_example_v2(ex, tokenizer):
@@ -50,6 +60,11 @@ def fmt_dpo_example_v2(ex, tokenizer):
         add_generation_prompt=True,
         enable_thinking=False,
     )
+    # Strip Qwen3.5 empty <think></think> chat-template artifacts so the DPO
+    # prompt distribution matches the SFT prompt distribution. Without this,
+    # SFT trains on prompts ending at '<|im_start|>assistant\n' while DPO
+    # trains on prompts ending at '<|im_start|>assistant\n<think>\n\n</think>\n\n'.
+    prompt_str = EMPTY_THINK_RE.sub('', prompt_str)
     return {
         "prompt": prompt_str,
         "chosen": ex["chosen"],

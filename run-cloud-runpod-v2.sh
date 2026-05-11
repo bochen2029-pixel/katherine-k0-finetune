@@ -252,7 +252,8 @@ exec ./_supervise-cloud.sh \
             python merge_and_gguf.py \\
                 --adapter \"\$FINAL_ADAPTER\" \\
                 --gguf-base-dir \"$GGUF_BASE_DIR\" \\
-                --quants $GGUF_QUANTS
+                --quants $GGUF_QUANTS \\
+                --abort-on-verify-fail
         else
             echo '[stage 3] SKIPPED'
         fi

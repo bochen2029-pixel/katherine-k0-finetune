@@ -12,8 +12,9 @@ Failsafe:
   - Adapter is preserved; this stage doesn't modify it.
   - First run compiles llama.cpp internally (~5-10 min). Subsequent runs reuse.
 
-v2.1 (2026-05-11) — audit-quality fixes for GGUF context corruption.
-See AUDIT NOTES at bottom of file for the full diagnosis.
+v2.2 (2026-05-11) — audit-quality fixes for GGUF context corruption + vision
+preservation + verification-gated push. See AUDIT NOTES at bottom of file
+for the full diagnosis.
 
   1. NATIVE-CONTEXT PRESERVATION: Read native max_position_embeddings from
      the base model referenced in the adapter's PEFT config (262144 for
@@ -38,10 +39,23 @@ See AUDIT NOTES at bottom of file for the full diagnosis.
 
   3. POST-CONVERSION VALIDATION: After each quant is written, read the
      GGUF metadata via gguf-py and verify the context_length and tokenizer
-     chat_template are what we set. Logs PASS / FAIL / SKIP per file. Does
-     NOT fail the run on mismatch (the adapter is preserved either way) but
-     surfaces the problem loudly so the operator catches it before pushing
-     a corrupt GGUF to HF.
+     chat_template are what we set. Logs PASS / FAIL / SKIP per file.
+
+  4. MMPROJ FALLBACK (vision preservation): After all quants export, scan
+     for mmproj-F16.gguf. If Unsloth's FastVisionModel.save_pretrained_gguf
+     did not emit one (the cause of the 2026-05-10 vision-loss observation),
+     download the canonical mmproj from --mmproj-source
+     (default: unsloth/Qwen3.5-9B-GGUF). Hardlink (or copy on cross-device)
+     into each successful quant's output dir so each quant subdir is
+     self-contained for downstream LM Studio / llama.cpp use. Our LoRA
+     touches language layers only; the upstream mmproj composes with our
+     merged LLM correctly. Reversible via --no-fetch-mmproj.
+
+  5. ABORT-ON-VERIFY-FAIL: When --abort-on-verify-fail is set (recommended
+     for production runs), the script exits non-zero if any GGUF metadata
+     verification fails OR mmproj could not be staged. This propagates
+     through run-cloud-runpod-v2.sh's set -e cascade and prevents Stage 4
+     (HF push) from uploading broken artifacts.
 """
 import argparse
 import os
@@ -114,6 +128,99 @@ def patch_chat_template(tokenizer):
     print(f"[chat-template] patched: removed empty <think></think> generation-prompt "
           f"injection ({before_len} → {after_len} chars)")
     return True
+
+
+def stage_mmproj(args, successes):
+    """Ensure mmproj-F16.gguf is staged alongside each successful quant.
+
+    Strategy:
+      1. Scan output for any mmproj Unsloth may have emitted.
+      2. If none, download canonical from --mmproj-source.
+      3. Hardlink (or copy on cross-device) into each quant's output dir.
+
+    Returns (canonical_path, n_staged) where canonical_path is None on
+    failure. The launcher / push step picks up the mmproj alongside the
+    main GGUF in each quant subdir (each subdir self-contained for LM
+    Studio drops).
+    """
+    import shutil
+
+    # Step 1: scan existing output for any mmproj
+    existing = []
+    for root, _, files in os.walk(args.gguf_base_dir):
+        for fn in files:
+            if "mmproj" in fn.lower() and fn.endswith(".gguf"):
+                existing.append(os.path.join(root, fn))
+
+    canonical = None
+    if existing:
+        existing.sort(key=lambda p: os.path.getsize(p), reverse=True)
+        canonical = existing[0]
+        print(f"[mmproj] Unsloth emitted {len(existing)} mmproj file(s); "
+              f"canonical = {canonical} "
+              f"({os.path.getsize(canonical)/(1024*1024):.0f} MB)")
+    elif args.no_fetch_mmproj:
+        print(f"[mmproj] Unsloth did not emit mmproj and --no-fetch-mmproj "
+              f"set; deployed GGUF will lack vision.")
+        return None, 0
+    else:
+        print(f"[mmproj] Unsloth did not emit mmproj; downloading canonical "
+              f"from {args.mmproj_source}")
+        try:
+            from huggingface_hub import hf_hub_download
+            Path(args.gguf_base_dir).mkdir(parents=True, exist_ok=True)
+            canonical = hf_hub_download(
+                repo_id=args.mmproj_source,
+                filename="mmproj-F16.gguf",
+                local_dir=args.gguf_base_dir,
+            )
+            sz = os.path.getsize(canonical) / (1024 * 1024)
+            print(f"[mmproj] downloaded: {canonical} ({sz:.0f} MB)")
+        except Exception as e:
+            print(f"[mmproj] FAIL download from {args.mmproj_source}: "
+                  f"{type(e).__name__}: {e}", file=sys.stderr)
+            print(f"[mmproj] Deployed GGUF will LACK VISION. Manual restore "
+                  f"available via scripts/restore_vision_to_v1.sh after the "
+                  f"push completes.", file=sys.stderr)
+            return None, 0
+
+    # Step 3: stage canonical into each successful quant's output dir
+    quant_dirs = set()
+    for quant, files in successes:
+        for f, sz in files:
+            if "mmproj" not in os.path.basename(f).lower():
+                quant_dirs.add(os.path.dirname(f))
+
+    if not quant_dirs:
+        print(f"[mmproj] no quant dirs to stage into; canonical at {canonical}")
+        return canonical, 0
+
+    n_staged = 0
+    for d in quant_dirs:
+        target = os.path.join(d, "mmproj-F16.gguf")
+        if os.path.normpath(target) == os.path.normpath(canonical):
+            continue
+        if os.path.exists(target):
+            print(f"[mmproj] already present: {target}")
+            n_staged += 1
+            continue
+        try:
+            os.link(canonical, target)
+            print(f"[mmproj] hardlinked → {target}  (0 extra disk)")
+            n_staged += 1
+        except OSError as e:
+            try:
+                shutil.copy(canonical, target)
+                sz = os.path.getsize(target) / (1024 * 1024)
+                print(f"[mmproj] copied → {target}  ({sz:.0f} MB)  "
+                      f"(hardlink failed: {e})")
+                n_staged += 1
+            except Exception as ce:
+                print(f"[mmproj] FAIL stage to {target}: "
+                      f"{type(ce).__name__}: {ce}", file=sys.stderr)
+
+    print(f"[mmproj] staged into {n_staged}/{len(quant_dirs)} quant dirs")
+    return canonical, n_staged
 
 
 def verify_gguf_metadata(gguf_path, expected_min_ctx, expect_no_empty_think):
@@ -207,6 +314,20 @@ def main():
                    help="Skip native max_position_embeddings preservation. "
                         "Disables the 4096-cap fix; use only if you know what "
                         "you are doing.")
+    p.add_argument("--no-fetch-mmproj", action="store_true",
+                   help="If Unsloth does not emit mmproj-F16.gguf, do NOT "
+                        "fetch from upstream. Default is to fetch from "
+                        "--mmproj-source so the deployed GGUF retains vision.")
+    p.add_argument("--mmproj-source", default="unsloth/Qwen3.5-9B-GGUF",
+                   help="HF repo to fetch mmproj-F16.gguf from when Unsloth "
+                        "does not emit one. The mmproj is the base model's "
+                        "vision encoder; our LoRA only touches language "
+                        "layers, so the upstream mmproj composes correctly "
+                        "with our merged LLM GGUFs.")
+    p.add_argument("--abort-on-verify-fail", action="store_true",
+                   help="Exit non-zero if any GGUF metadata verification fails "
+                        "OR mmproj could not be staged. Prevents uploading "
+                        "corrupted artifacts via the launcher's set -e cascade.")
     args = p.parse_args()
 
     if not os.path.isdir(args.adapter):
@@ -310,6 +431,13 @@ def main():
             print(f"[gguf] FAIL: {type(e).__name__}: {e}")
             failures.append((quant, str(e)))
 
+    # --- Stage mmproj (vision encoder) into each quant dir ---
+    print()
+    print("[mmproj] === staging vision encoder ===")
+    canonical_mmproj, n_mmproj_staged = stage_mmproj(args, successes)
+    mmproj_required = not args.no_fetch_mmproj
+    mmproj_missing = mmproj_required and canonical_mmproj is None
+
     print()
     print("=" * 60)
     print(f"[summary] {len(successes)} successful, {len(failures)} failed")
@@ -319,24 +447,49 @@ def main():
     for quant, err in failures:
         print(f"  ✗ {quant}: {err}")
 
+    if canonical_mmproj:
+        print(f"  ✓ mmproj: {canonical_mmproj}  "
+              f"(staged into {n_mmproj_staged} quant dir(s))")
+    elif mmproj_required:
+        print(f"  ✗ mmproj: NOT STAGED — deployed model loses vision")
+
+    n_verify_fail = 0
     if verifications:
         print()
         print("[audit] GGUF metadata verification:")
         n_pass = sum(1 for _, v in verifications if v is True)
-        n_fail = sum(1 for _, v in verifications if v is False)
+        n_verify_fail = sum(1 for _, v in verifications if v is False)
         n_skip = sum(1 for _, v in verifications if v is None)
         for f, v in verifications:
             tag = "PASS" if v is True else "FAIL" if v is False else "SKIP"
             print(f"  [{tag}] {f}")
-        print(f"[audit] {n_pass} pass / {n_fail} fail / {n_skip} skip")
-        if n_fail > 0:
-            print(f"[audit] WARNING: {n_fail} GGUF(s) failed metadata verification — "
-                  f"context cap or chat template did not stick. Inspect before pushing.",
-                  file=sys.stderr)
+        print(f"[audit] {n_pass} pass / {n_verify_fail} fail / {n_skip} skip")
+        if n_verify_fail > 0:
+            print(f"[audit] WARNING: {n_verify_fail} GGUF(s) failed metadata "
+                  f"verification — context cap or chat template did not stick. "
+                  f"Inspect before pushing.", file=sys.stderr)
 
     if not successes:
         print("[fatal] no quants succeeded; adapter is preserved")
         sys.exit(2)
+
+    # --- Abort-on-verify-fail gate ---
+    if args.abort_on_verify_fail:
+        fatal_reasons = []
+        if n_verify_fail > 0:
+            fatal_reasons.append(f"{n_verify_fail} GGUF metadata verification(s) failed")
+        if mmproj_missing:
+            fatal_reasons.append("mmproj-F16.gguf could not be staged (vision lost)")
+        if fatal_reasons:
+            print(file=sys.stderr)
+            print(f"[abort] --abort-on-verify-fail set; refusing to proceed:",
+                  file=sys.stderr)
+            for r in fatal_reasons:
+                print(f"  - {r}", file=sys.stderr)
+            print(f"[abort] launcher's set -e cascade will kill the HF push stage.",
+                  file=sys.stderr)
+            sys.exit(3)
+
     print()
     print("[done] merge + GGUF stage complete")
 

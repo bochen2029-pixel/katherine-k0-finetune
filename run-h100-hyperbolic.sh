@@ -31,6 +31,25 @@
 #   If you need to skip a stage (e.g., SFT already done from a previous
 #   attempt), set SKIP_SFT=1, SKIP_DPO=1, SKIP_GGUF=1, or SKIP_PUSH=1.
 #
+# TRAIN-HARDER hyperparameters (defaults below):
+#   This launcher sets harder hyperparameters than the v2 launcher defaults
+#   to maximize H100 utilization for K0 persona consolidation. Rationale:
+#     - K0 v1 (rank 64, 3 epochs) showed trope amplification — UNDER-trained.
+#     - v2 dataset is cleaner (exemplar-anchored, em-dash banned, trope-rotated).
+#     - H100 80GB has 5× headroom over the conservative batch=16 default.
+#     - 2000-sample QLoRA at rank=128 stays out of overfit zone with lr=5e-5.
+#   Each value is env-overridable (e.g., SFT_EPOCHS=4 ... bash <(curl ...)).
+#
+#   SFT_RANK=128       (was 64)    LoRA rank; capacity for dense persona.
+#   SFT_ALPHA=256      (was 128)   2× rank, standard convention.
+#   SFT_EPOCHS=6       (was 3)     more passes; save_strategy="epoch" keeps all.
+#   SFT_LR=5e-5        (was 1e-4)  halved to offset more epochs + higher rank.
+#   SFT_BATCH=32       (was 16)    H100 80GB handles it; cleaner gradients.
+#   SFT_GRAD_ACCUM=2   (was 2)     effective batch 64.
+#   DPO_EPOCHS=4       (was 2)     DPO benefits from more passes.
+#   DPO_BATCH=8        (was 4)     H100 headroom; effective DPO batch 16.
+#   DPO_GRAD_ACCUM=2   (was 2)
+#
 # Required env:
 #   HF_TOKEN          your HF write-scope token (hf_*)
 #
@@ -39,11 +58,17 @@
 #   VANILLA           1 for vanilla (text-only), 0 for full (default 1)
 #   HF_BUCKET         HF bucket destination (default derived from TIER)
 #   SKIP_SFT/DPO/GGUF/PUSH  set 1 to skip a stage
-#   SFT_BATCH         training batch size (default 16; H100 80GB handles it)
-#   WALLCLOCK_HARD_CAP  hard kill in seconds (default 14400 = 4 hours)
+#   WALLCLOCK_HARD_CAP  hard kill in seconds (default 21600 = 6 hours)
+#   Any of the SFT_/DPO_ vars above to override train-harder defaults
 #
-# Wallclock target: ~75-110 min on 1× H100 80GB
-# Cost target: ~$3-7 (Hyperbolic H100 pricing varies by tier)
+# Wallclock target: ~90-120 min on 1× H100 80GB
+# Cost target: ~$5-8 (Hyperbolic H100 pricing varies by tier)
+#
+# End artifacts: 6 SFT epoch checkpoints + 4 DPO epoch checkpoints all saved
+# to disk. The final DPO adapter (last epoch) merges into the GGUFs that get
+# pushed. To test other epoch checkpoints in LM Studio after the run, they
+# live at adapters/k0_v2_sft_t2500_vanilla/checkpoint-* and
+# adapters/k0_v2_dpo_t2500_vanilla/checkpoint-*.
 
 set -euo pipefail
 
@@ -65,6 +90,24 @@ export HF_TOKEN
 export TIER="${TIER:-2500}"
 export VANILLA="${VANILLA:-1}"
 
+# ----- TRAIN-HARDER hyperparameter overrides -----
+# These export defaults that run-cloud-runpod-v2.sh picks up via its
+# ${VAR:-fallback} pattern. If the user already set any of these in env
+# before invoking this launcher, that value wins. See file header for
+# rationale and original defaults.
+export SFT_RANK="${SFT_RANK:-128}"
+export SFT_ALPHA="${SFT_ALPHA:-256}"
+export SFT_EPOCHS="${SFT_EPOCHS:-6}"
+export SFT_LR="${SFT_LR:-5e-5}"
+export SFT_BATCH="${SFT_BATCH:-32}"
+export SFT_GRAD_ACCUM="${SFT_GRAD_ACCUM:-2}"
+export DPO_EPOCHS="${DPO_EPOCHS:-4}"
+export DPO_BATCH="${DPO_BATCH:-8}"
+export DPO_GRAD_ACCUM="${DPO_GRAD_ACCUM:-2}"
+
+# 6-hour hard cap (was 4h) to accommodate the harder training schedule.
+export WALLCLOCK_HARD_CAP="${WALLCLOCK_HARD_CAP:-21600}"
+
 # -------------------------------------------------------------------
 # 2. Environment fingerprint (audit log)
 # -------------------------------------------------------------------
@@ -78,6 +121,15 @@ echo "  HOME:        ${HOME:-(unset)}"
 echo "  PWD:         $(pwd)"
 echo "  TIER:        $TIER"
 echo "  VANILLA:     $VANILLA"
+echo
+echo "  Train-harder hyperparameters:"
+echo "    SFT_RANK / ALPHA:   $SFT_RANK / $SFT_ALPHA"
+echo "    SFT_EPOCHS:         $SFT_EPOCHS"
+echo "    SFT_LR:             $SFT_LR"
+echo "    SFT effective batch: $((SFT_BATCH * SFT_GRAD_ACCUM))  ($SFT_BATCH × $SFT_GRAD_ACCUM)"
+echo "    DPO_EPOCHS:         $DPO_EPOCHS"
+echo "    DPO effective batch: $((DPO_BATCH * DPO_GRAD_ACCUM))  ($DPO_BATCH × $DPO_GRAD_ACCUM)"
+echo "    Wallclock cap:      $((WALLCLOCK_HARD_CAP / 60)) minutes"
 echo
 
 if command -v nvidia-smi >/dev/null; then

@@ -93,7 +93,7 @@ $PY -m pip install --quiet \
 $PY -m pip install --quiet \
     "unsloth[colab-new] @ git+https://github.com/unslothai/unsloth.git" \
     "transformers>=4.50.0" \
-    "trl>=0.12.0" \
+    "trl>=0.12.0,<0.14.0" \
     "peft>=0.12.0" \
     "bitsandbytes>=0.43.0" \
     "accelerate>=1.0.0" \
@@ -101,7 +101,8 @@ $PY -m pip install --quiet \
     "huggingface_hub>=0.27.0" \
     "sentencepiece" \
     "protobuf" \
-    "xformers"
+    "xformers" \
+    "gguf>=0.10.0"
 
 # Verify import
 $PY -c "import unsloth; print(f'  unsloth: {unsloth.__version__}')"
