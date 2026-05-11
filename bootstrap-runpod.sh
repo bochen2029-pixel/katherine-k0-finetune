@@ -155,11 +155,25 @@ $PIP_INSTALL \
 # the just-installed torch 2.5.1+cu121 up to the latest version satisfying
 # that range — likely 2.10.x with cu128 wheels — re-introducing the
 # driver-535 incompatibility we just fixed above.
-$PIP_INSTALL --upgrade \
-    "unsloth_zoo @ git+https://github.com/unslothai/unsloth-zoo.git" \
-    "unsloth[colab-new] @ git+https://github.com/unslothai/unsloth.git" \
-    "transformers>=4.50.0" \
-    "trl>=0.18.2,!=0.19.0,<=0.24.0" \
+# Stack pinned for driver 535 / cu121 / torch 2.5.1 compatibility:
+#
+#   driver 535 → cu121 wheels max (no native cu124+ support)
+#   cu121      → torch 2.5.1 max (torch 2.6 dropped cu121 wheels)
+#   torch 2.5  → lacks torch.int1 attribute (added in torch 2.6)
+#   torchao 0.13+ → references torch.int1; would crash transformers import
+#
+# Escape hatch: unsloth_zoo 2025.5.1 predates the torchao dependency and
+# pins transformers to 4.51.3 — a transformers version that doesn't
+# eagerly import torchao at module load. unsloth 2025.5.1 pairs with it.
+# This release set is the last fully torch-2.5-compatible unsloth stack.
+#
+# DO NOT bump these without testing on driver 535. If the host driver
+# is 550+, drop the pins entirely and let unsloth pull current main —
+# everything cascades correctly with cu124 wheels.
+$PIP_INSTALL \
+    "unsloth==2025.5.1" \
+    "unsloth_zoo==2025.5.1" \
+    "trl>=0.12.0" \
     "peft>=0.12.0" \
     "bitsandbytes>=0.43.0" \
     "accelerate>=1.0.0" \
@@ -168,13 +182,7 @@ $PIP_INSTALL --upgrade \
     "sentencepiece" \
     "protobuf" \
     "xformers" \
-    "gguf>=0.10.0" \
-    "torchao==0.7.0"
-# torchao pin: transformers' quantizers/__init__.py eagerly imports
-# torchao.quantization. torchao 0.8+ references torch.int1 which only
-# exists in torch 2.6+. We pin torch to 2.5.1 (cu121 for driver 535),
-# so torchao must be <=0.7.x. 0.7.0 is the last release on the
-# torch 2.5 compatibility line.
+    "gguf>=0.10.0"
 
 # When pip --user installs binaries (hf CLI, etc.), they land in ~/.local/bin.
 # Make sure that's on PATH within this shell so the post-install verification
