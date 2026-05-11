@@ -115,16 +115,23 @@ echo "  pip install pattern: $PIP_INSTALL"
 
 $PIP_INSTALL --upgrade pip
 
-# Assumes modern NVIDIA driver (570+) on the host so cu128 wheels from
-# default PyPI work. If you land on a stale Hyperbolic image with driver
-# 535, either run `sudo apt-get install -y nvidia-driver-570 && sudo reboot`
-# or look at git history for the cu121 fallback path (commit 4bc14e1).
+# Assumes modern NVIDIA driver (570+) so cu128 wheels work. If you land
+# on a stale Hyperbolic image with driver 535, either upgrade the driver
+# or look at git history for the cu121 fallback (commit 4bc14e1).
 #
-# --force-reinstall: if a prior partial install left torch 2.5.1+cu121
-# in ~/.local (which has happened on iterative debugging), plain
-# `pip install torch` would skip the upgrade since pip sees torch as
-# "already installed". force-reinstall guarantees we land on latest cu128.
-$PIP_INSTALL --force-reinstall "torch" "torchvision" "torchaudio"
+# PIN ALL THREE: torch + torchvision + torchaudio MUST be from the same
+# release cycle or torchvision's binary ABI won't match torch and
+# `import torchvision` crashes with "operator torchvision::nms does not
+# exist". PyTorch's official release matrix:
+#   torch 2.10.0 ↔ torchvision 0.25.0 ↔ torchaudio 2.10.0
+# Letting pip resolve unpinned can pick mismatched majors (seen on
+# 2026-05-11). --force-reinstall is required because a prior partial
+# install may have left old +cu121 wheels in ~/.local that satisfy
+# "already installed" and pip would skip the upgrade.
+$PIP_INSTALL --force-reinstall \
+    "torch==2.10.0" \
+    "torchvision==0.25.0" \
+    "torchaudio==2.10.0"
 
 # unsloth + unsloth_zoo must come from the SAME source (git main) to keep
 # their internal TRL pins consistent. Their current main requires:
