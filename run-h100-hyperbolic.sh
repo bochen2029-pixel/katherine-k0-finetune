@@ -203,6 +203,14 @@ if [ ! -d "$REPO_DIR" ]; then
     exit 1
 fi
 
+# When non-root, bootstrap installed pip packages with --user, which puts
+# binaries in ~/.local/bin (notably the `hf` CLI used by push_to_hf.py and
+# the watchdog HF sync). bootstrap's PATH export was in its own subshell;
+# re-establish it here so run-cloud-runpod-v2.sh inherits it.
+if [ "$(id -u)" -ne 0 ] && [ -d "$HOME/.local/bin" ]; then
+    export PATH="$HOME/.local/bin:$PATH"
+fi
+
 cd "$REPO_DIR"
 
 # Audit: confirm dataset is present (the bootstrap clone includes it).

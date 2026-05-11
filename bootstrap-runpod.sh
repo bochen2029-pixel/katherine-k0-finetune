@@ -23,6 +23,20 @@ echo "Host: $(hostname)"
 echo "User: $(whoami)"
 echo
 
+# -----------------------------------------------------------------------
+# Detect privilege level. RunPod's pytorch image runs as root; Hyperbolic
+# (and most user-friendly cloud GPU pods) run as a normal user with
+# passwordless sudo. Pick the right invocation pattern for apt + pip.
+# -----------------------------------------------------------------------
+SUDO=""
+PIP_USER_FLAG=""
+if [ "$(id -u)" -ne 0 ]; then
+    SUDO="sudo"
+    PIP_USER_FLAG="--user"
+fi
+echo "Privilege: $(id -un) (uid=$(id -u)); apt prefix='${SUDO:-(none)}'; pip flag='${PIP_USER_FLAG:-(none)}'"
+echo
+
 # 1. CUDA toolkit check
 echo "[1/6] Verifying CUDA toolkit..."
 if ! command -v nvcc >/dev/null; then
@@ -47,8 +61,8 @@ nvidia-smi --query-gpu=name,memory.total,driver_version --format=csv
 # interactively at GGUF time, which fails under the watchdog (closed stdin).
 echo
 echo "[2b/6] Installing apt packages for llama.cpp / GGUF export..."
-apt-get update -qq 2>&1 | tail -2
-DEBIAN_FRONTEND=noninteractive apt-get install -y -qq \
+$SUDO apt-get update -qq 2>&1 | tail -2
+DEBIAN_FRONTEND=noninteractive $SUDO apt-get install -y -qq \
     cmake libssl-dev libcurl4-openssl-dev build-essential \
     2>&1 | tail -3
 
@@ -74,7 +88,18 @@ echo "  (this can take 5-10 min on first run — unsloth pulls a lot)"
 PY=python3
 if ! command -v $PY >/dev/null; then PY=python; fi
 
-$PY -m pip install --quiet --upgrade pip
+# Probe for --break-system-packages (pip 23.0+; required by PEP 668 on Ubuntu
+# 23.04+ images; harmless if also passed on older pip — except that older pip
+# refuses unknown flags. So we test before adding it).
+PIP_BREAK_FLAG=""
+if $PY -m pip install --break-system-packages --dry-run pip >/dev/null 2>&1; then
+    PIP_BREAK_FLAG="--break-system-packages"
+fi
+
+PIP_INSTALL="$PY -m pip install --quiet $PIP_USER_FLAG $PIP_BREAK_FLAG"
+echo "  pip install pattern: $PIP_INSTALL"
+
+$PIP_INSTALL --upgrade pip
 
 # Core stack. Pin EXACT torch + torchvision + torchaudio so we don't get the
 # pip-resolver-picks-newest issue:
@@ -85,12 +110,12 @@ $PY -m pip install --quiet --upgrade pip
 #     (torch 2.11 wheels target cu13)
 # Fix: pin torch to 2.10.0 explicitly (works with cu128 driver, satisfies
 # unsloth-zoo's <2.11 ceiling).
-$PY -m pip install --quiet \
+$PIP_INSTALL \
     "torch==2.10.0" \
     "torchvision==0.25.0" \
     "torchaudio==2.10.0"
 
-$PY -m pip install --quiet \
+$PIP_INSTALL \
     "unsloth[colab-new] @ git+https://github.com/unslothai/unsloth.git" \
     "transformers>=4.50.0" \
     "trl>=0.12.0,<0.14.0" \
@@ -103,6 +128,14 @@ $PY -m pip install --quiet \
     "protobuf" \
     "xformers" \
     "gguf>=0.10.0"
+
+# When pip --user installs binaries (hf CLI, etc.), they land in ~/.local/bin.
+# Make sure that's on PATH within this shell so the post-install verification
+# and `hf auth login` calls below find them. The launcher (run-h100-hyperbolic.sh)
+# repeats this export so the subsequent v2 launcher invocation also sees them.
+if [ -n "$PIP_USER_FLAG" ] && [ -d "$HOME/.local/bin" ]; then
+    export PATH="$HOME/.local/bin:$PATH"
+fi
 
 # Verify import
 $PY -c "import unsloth; print(f'  unsloth: {unsloth.__version__}')"
