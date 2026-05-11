@@ -11,6 +11,37 @@ Failsafe:
   - Each quant is independent. If q5 fails, q4 + q6 are still useful.
   - Adapter is preserved; this stage doesn't modify it.
   - First run compiles llama.cpp internally (~5-10 min). Subsequent runs reuse.
+
+v2.1 (2026-05-11) — audit-quality fixes for GGUF context corruption.
+See AUDIT NOTES at bottom of file for the full diagnosis.
+
+  1. NATIVE-CONTEXT PRESERVATION: Read native max_position_embeddings from
+     the base model referenced in the adapter's PEFT config (262144 for
+     Qwen3.5-9B). Force model.config.max_position_embeddings AND
+     tokenizer.model_max_length to that value before save_pretrained_gguf,
+     regardless of what Unsloth's FastVisionModel.from_pretrained may have
+     done to the in-memory config based on the training max_seq_length=1024.
+     This is the root fix for the 4096-cap bug observed in LM Studio after
+     the 2026-05-10 run: the training max_seq leaked into the saved config
+     and thus into GGUF metadata.
+
+  2. CHAT TEMPLATE PATCH: Qwen3.5's stock chat_template unconditionally
+     injects '<think>\\n\\n</think>\\n\\n' after the assistant generation
+     prompt unless enable_thinking=True. K0 v2 training strips empty
+     <think></think> tags from the data via EMPTY_THINK_RE in
+     finetune_k0_v2.py, so the trained model never sees them. At inference
+     (LM Studio, llama.cpp, etc.) the template still injects them, putting
+     the model in an undefined state for its first generated token. We
+     replace that injection with an empty emit so the inference prompt
+     matches the training distribution. Reversible via
+     --no-patch-chat-template.
+
+  3. POST-CONVERSION VALIDATION: After each quant is written, read the
+     GGUF metadata via gguf-py and verify the context_length and tokenizer
+     chat_template are what we set. Logs PASS / FAIL / SKIP per file. Does
+     NOT fail the run on mismatch (the adapter is preserved either way) but
+     surfaces the problem loudly so the operator catches it before pushing
+     a corrupt GGUF to HF.
 """
 import argparse
 import os
@@ -23,33 +54,214 @@ from pathlib import Path
 from unsloth import FastVisionModel
 
 
+# The Qwen3.5 chat_template emits this string after the assistant generation
+# prompt when enable_thinking is not True. The exact bytes (as they appear in
+# the Jinja source) include literal \n backslash-n sequences, NOT real newlines.
+EMPTY_THINK_INJECTION = "{{- '<think>\\n\\n</think>\\n\\n' }}"
+EMPTY_THINK_REPLACEMENT = "{{- '' }}"
+
+
+def get_native_max_position_embeddings(adapter_dir):
+    """Resolve native max_position_embeddings by walking the PEFT config chain
+    until we reach the actual base model. Handles both single-adapter and
+    stacked-adapter cases (DPO-on-SFT) by following base_model_name_or_path
+    until PeftConfig.from_pretrained fails (meaning we have reached a real
+    base model, not another adapter). Returns (native_int, resolved_name)."""
+    from peft import PeftConfig
+    from transformers import AutoConfig
+
+    visited = []
+    current = adapter_dir
+    while current and current not in visited:
+        visited.append(current)
+        try:
+            peft_cfg = PeftConfig.from_pretrained(current)
+        except Exception:
+            # Not a PEFT config dir — this is the real base model.
+            break
+        next_target = getattr(peft_cfg, 'base_model_name_or_path', None)
+        if not next_target:
+            break
+        current = next_target
+
+    if not current:
+        raise ValueError(f"Could not resolve base model from {adapter_dir}")
+
+    base_config = AutoConfig.from_pretrained(current, trust_remote_code=True)
+    native = getattr(base_config, 'max_position_embeddings', None)
+    if native is None:
+        raise ValueError(f"max_position_embeddings not found in: {current}")
+    print(f"[ctx-resolve] chain: {' -> '.join(visited + [current])}")
+    return int(native), current
+
+
+def patch_chat_template(tokenizer):
+    """Patch tokenizer.chat_template in place to remove the unconditional
+    empty <think></think> injection at the assistant generation prompt.
+    Returns True if a replacement was made, False otherwise."""
+    tpl = getattr(tokenizer, 'chat_template', None)
+    if not tpl:
+        print("[chat-template] WARN: tokenizer has no chat_template; skipping patch")
+        return False
+    before_len = len(tpl)
+    if EMPTY_THINK_INJECTION not in tpl:
+        print(f"[chat-template] WARN: empty-think injection pattern not found "
+              f"in chat_template ({before_len} chars); skipping patch")
+        return False
+    patched = tpl.replace(EMPTY_THINK_INJECTION, EMPTY_THINK_REPLACEMENT)
+    after_len = len(patched)
+    tokenizer.chat_template = patched
+    print(f"[chat-template] patched: removed empty <think></think> generation-prompt "
+          f"injection ({before_len} → {after_len} chars)")
+    return True
+
+
+def verify_gguf_metadata(gguf_path, expected_min_ctx, expect_no_empty_think):
+    """Read GGUF metadata via gguf-py and verify context length + chat_template.
+
+    Returns one of:
+      True  — all checks passed
+      False — at least one check failed (loudly logged)
+      None  — could not verify (gguf-py not installed or read failed)
+    """
+    try:
+        from gguf import GGUFReader
+    except ImportError:
+        print(f"[verify] gguf-py not available; cannot verify {gguf_path}")
+        return None
+
+    try:
+        reader = GGUFReader(gguf_path)
+    except Exception as e:
+        print(f"[verify] could not read GGUF {os.path.basename(gguf_path)}: "
+              f"{type(e).__name__}: {e}")
+        return None
+
+    found_ctx = False
+    found_template = False
+    all_ok = True
+
+    for key in reader.fields:
+        field = reader.fields[key]
+        keylower = key.lower()
+
+        if 'context_length' in keylower:
+            try:
+                value = int(field.parts[field.data[0]][0])
+                if value >= expected_min_ctx:
+                    print(f"[verify] PASS {key} = {value} (>= {expected_min_ctx})")
+                else:
+                    print(f"[verify] FAIL {key} = {value} (< {expected_min_ctx}) "
+                          f"-- 4096-cap bug HAS REGRESSED")
+                    all_ok = False
+                found_ctx = True
+            except Exception as e:
+                print(f"[verify] WARN could not read {key}: {e}")
+
+        if 'tokenizer.chat_template' in keylower:
+            try:
+                raw = bytes(field.parts[field.data[0]])
+                template = raw.decode('utf-8', errors='replace')
+                if expect_no_empty_think:
+                    if EMPTY_THINK_INJECTION in template:
+                        print(f"[verify] FAIL chat_template still contains empty "
+                              f"<think></think> injection")
+                        all_ok = False
+                    else:
+                        print(f"[verify] PASS chat_template patched "
+                              f"(no empty think injection, {len(template)} chars)")
+                else:
+                    print(f"[verify] OK chat_template ({len(template)} chars, "
+                          f"patch disabled)")
+                found_template = True
+            except Exception as e:
+                print(f"[verify] WARN could not read chat_template: {e}")
+
+    if not found_ctx:
+        print(f"[verify] WARN no context_length field found in {os.path.basename(gguf_path)}")
+    if not found_template:
+        print(f"[verify] WARN no chat_template field found in {os.path.basename(gguf_path)}")
+
+    return all_ok
+
+
 def main():
     p = argparse.ArgumentParser()
     p.add_argument("--adapter", required=True,
                    help="Path to the final adapter (SFT or DPO).")
-    p.add_argument("--max_seq", type=int, default=1024)
+    p.add_argument("--max_seq", type=int, default=None,
+                   help="Explicit max_seq_length for FastVisionModel.from_pretrained. "
+                        "If unset, auto-detects native max_position_embeddings from "
+                        "the base model config (262144 for Qwen3.5-9B). The native "
+                        "value is always forced onto model.config and tokenizer "
+                        "before save_pretrained_gguf, regardless of this flag, "
+                        "unless --no-preserve-native-ctx is passed.")
     p.add_argument("--gguf-base-dir", default="gguf",
                    help="Parent directory; per-quant subdirs will be created.")
     p.add_argument("--quants", nargs="+", default=["q4_k_m", "q5_k_m", "q6_k"],
                    help="GGUF quantization methods to export.")
+    p.add_argument("--no-patch-chat-template", action="store_true",
+                   help="Skip the chat_template patch (keeps Qwen3.5 default "
+                        "empty <think></think> injection at generation prompt).")
+    p.add_argument("--no-preserve-native-ctx", action="store_true",
+                   help="Skip native max_position_embeddings preservation. "
+                        "Disables the 4096-cap fix; use only if you know what "
+                        "you are doing.")
     args = p.parse_args()
 
     if not os.path.isdir(args.adapter):
         print(f"[error] adapter not found: {args.adapter}", file=sys.stderr)
         sys.exit(1)
 
-    print(f"[load] adapter (vision-aware loader): {args.adapter}")
+    # --- Detect native context ---
+    if args.no_preserve_native_ctx:
+        native_ctx = args.max_seq if args.max_seq else 1024
+        base_model_name = "(detection skipped via --no-preserve-native-ctx)"
+        print(f"[ctx] preservation DISABLED; using {native_ctx}")
+    else:
+        try:
+            native_ctx, base_model_name = get_native_max_position_embeddings(args.adapter)
+            print(f"[ctx] base model: {base_model_name}")
+            print(f"[ctx] native max_position_embeddings: {native_ctx}")
+        except Exception as e:
+            print(f"[ctx] auto-detect FAILED: {type(e).__name__}: {e}", file=sys.stderr)
+            print(f"[ctx] falling back to 262144 (Qwen3.5-9B default)", file=sys.stderr)
+            native_ctx = 262144
+            base_model_name = "(detection failed; fallback to Qwen3.5-9B)"
+
+    # max_seq_length passed to FastVisionModel.from_pretrained. Use the
+    # explicit arg if given, otherwise the detected native context.
+    load_max_seq = args.max_seq if args.max_seq else native_ctx
+
+    print(f"[load] adapter (FastVisionModel — preserves vision tower): {args.adapter}")
+    print(f"[load] from_pretrained max_seq_length={load_max_seq}")
     model, tokenizer = FastVisionModel.from_pretrained(
         model_name=args.adapter,
-        max_seq_length=args.max_seq,
+        max_seq_length=load_max_seq,
         load_in_4bit=True,
         full_finetuning=False,
     )
+
+    # --- Force native context onto in-memory config + tokenizer ---
+    if not args.no_preserve_native_ctx:
+        cfg_before = getattr(model.config, 'max_position_embeddings', None)
+        tok_before = getattr(tokenizer, 'model_max_length', None)
+        model.config.max_position_embeddings = native_ctx
+        tokenizer.model_max_length = native_ctx
+        print(f"[ctx-force] model.config.max_position_embeddings: "
+              f"{cfg_before} → {native_ctx}")
+        print(f"[ctx-force] tokenizer.model_max_length: "
+              f"{tok_before} → {native_ctx}")
+
+    # --- Patch chat_template ---
+    patched = not args.no_patch_chat_template and patch_chat_template(tokenizer)
 
     Path(args.gguf_base_dir).mkdir(parents=True, exist_ok=True)
 
     successes = []
     failures = []
+    verifications = []
+
     for quant in args.quants:
         out_dir = os.path.join(args.gguf_base_dir, f"gguf_{quant}")
         print()
@@ -75,13 +287,19 @@ def main():
                         full = os.path.join(root, fn)
                         size_mb = os.path.getsize(full) / (1024 * 1024)
                         if "mmproj" in fn:
-                            # Vision encoder; preserve, do not throw away
                             mmproj_found.append((full, size_mb))
                         else:
                             produced.append((full, size_mb))
             if produced:
                 for f, sz in produced:
                     print(f"[gguf] OK: {f}  ({sz:.0f} MB)")
+                    # Audit: verify GGUF metadata reflects our fixes
+                    vok = verify_gguf_metadata(
+                        f,
+                        expected_min_ctx=native_ctx if not args.no_preserve_native_ctx else 1,
+                        expect_no_empty_think=(patched and not args.no_patch_chat_template),
+                    )
+                    verifications.append((f, vok))
                 for f, sz in mmproj_found:
                     print(f"[gguf] OK (vision): {f}  ({sz:.0f} MB)")
                 successes.append((quant, produced + mmproj_found))
@@ -101,6 +319,21 @@ def main():
     for quant, err in failures:
         print(f"  ✗ {quant}: {err}")
 
+    if verifications:
+        print()
+        print("[audit] GGUF metadata verification:")
+        n_pass = sum(1 for _, v in verifications if v is True)
+        n_fail = sum(1 for _, v in verifications if v is False)
+        n_skip = sum(1 for _, v in verifications if v is None)
+        for f, v in verifications:
+            tag = "PASS" if v is True else "FAIL" if v is False else "SKIP"
+            print(f"  [{tag}] {f}")
+        print(f"[audit] {n_pass} pass / {n_fail} fail / {n_skip} skip")
+        if n_fail > 0:
+            print(f"[audit] WARNING: {n_fail} GGUF(s) failed metadata verification — "
+                  f"context cap or chat template did not stick. Inspect before pushing.",
+                  file=sys.stderr)
+
     if not successes:
         print("[fatal] no quants succeeded; adapter is preserved")
         sys.exit(2)
@@ -110,3 +343,52 @@ def main():
 
 if __name__ == "__main__":
     main()
+
+
+# ============================================================
+# AUDIT NOTES — 2026-05-11
+# ============================================================
+#
+# Problem observed on 2026-05-10 run:
+#   - User trained tier_X via run-cloud-runpod-v2.sh on H200/RunPod.
+#   - GGUFs produced, pushed to HF.
+#   - Loaded a GGUF in LM Studio: max context capped at 4096.
+#   - Native Qwen3.5-9B context per HF config.json: 262144 (256K).
+#
+# Root cause:
+#   - finetune_k0_v2.py and dpo_k0_v2.py train at max_seq=1024 (memory).
+#   - merge_and_gguf.py (v2.0) called FastVisionModel.from_pretrained with
+#     max_seq_length=args.max_seq, default 1024.
+#   - Unsloth's FastVisionModel.from_pretrained, in current versions, mutates
+#     model.config.max_position_embeddings to match max_seq_length on load.
+#   - save_pretrained_gguf then calls model.save_pretrained internally before
+#     running llama.cpp's convert_hf_to_gguf.py on the saved dir.
+#   - convert_hf_to_gguf.py reads max_position_embeddings from the saved
+#     config.json and writes it as qwen3.context_length in the GGUF metadata.
+#   - llama.cpp (and LM Studio on top of it) then caps n_ctx_train to that
+#     value. The "4096" the user saw is likely a llama.cpp floor / rounding
+#     artifact when given a small value, but the underlying corruption is
+#     the lowered max_position_embeddings.
+#
+# Fix:
+#   - Detect native max_position_embeddings from the base model referenced
+#     in the adapter's adapter_config.json (PEFT config).
+#   - After FastVisionModel.from_pretrained, force-write that native value
+#     back onto model.config.max_position_embeddings AND
+#     tokenizer.model_max_length, before save_pretrained_gguf runs.
+#   - Pass max_seq_length=native_ctx into from_pretrained too, since some
+#     Unsloth versions use it as a hint elsewhere. The model weights are
+#     unchanged by this; only the config metadata is preserved correctly.
+#   - Verify post-conversion by reading the resulting GGUF metadata via
+#     gguf-py and confirming context_length matches expectation.
+#
+# Secondary fix — empty <think></think> at generation prompt:
+#   - Qwen3.5 chat_template, when add_generation_prompt=True and
+#     enable_thinking is not True, emits '<think>\\n\\n</think>\\n\\n'
+#     immediately after '<|im_start|>assistant\\n'.
+#   - K0 v2 trains on data with empty <think></think> stripped (regex in
+#     finetune_k0_v2.py). So at inference the model sees a prefix it never
+#     trained on.
+#   - We patch the template to emit nothing in that branch. The model now
+#     sees the same prompt shape at inference as it did during training.
+# ============================================================
