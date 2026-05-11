@@ -168,7 +168,13 @@ $PIP_INSTALL --upgrade \
     "sentencepiece" \
     "protobuf" \
     "xformers" \
-    "gguf>=0.10.0"
+    "gguf>=0.10.0" \
+    "torchao==0.7.0"
+# torchao pin: transformers' quantizers/__init__.py eagerly imports
+# torchao.quantization. torchao 0.8+ references torch.int1 which only
+# exists in torch 2.6+. We pin torch to 2.5.1 (cu121 for driver 535),
+# so torchao must be <=0.7.x. 0.7.0 is the last release on the
+# torch 2.5 compatibility line.
 
 # When pip --user installs binaries (hf CLI, etc.), they land in ~/.local/bin.
 # Make sure that's on PATH within this shell so the post-install verification
