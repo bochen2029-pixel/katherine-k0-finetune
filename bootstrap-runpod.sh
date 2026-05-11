@@ -115,30 +115,11 @@ echo "  pip install pattern: $PIP_INSTALL"
 
 $PIP_INSTALL --upgrade pip
 
-# Pin torch + torchvision + torchaudio to a cu121 wheel set so the install
-# is compatible with the kernel-side NVIDIA driver that Hyperbolic.xyz pods
-# typically ship (535.183.06 as of 2026-05-11).
-#
-# Driver-CUDA support matrix (Linux):
-#   driver 535.x → CUDA 12.2 native, 12.3-12.4 via cuda-compat libs
-#   driver 545+  → CUDA 12.3 native
-#   driver 550+  → CUDA 12.4 native
-#   driver 570+  → CUDA 12.8 native
-#
-# torch wheel CUDA tags:
-#   cu118 → CUDA 11.8 (any 5XX driver)
-#   cu121 → CUDA 12.1 (driver 525+) ← THIS ROW for driver 535
-#   cu124 → CUDA 12.4 (driver 545+ native, or 535 + cuda-compat)
-#   cu128 → CUDA 12.8 (driver 570+ native) ← FAILS on 535 at first kernel launch
-#
-# torch 2.5.1 is the last release shipping cu121 wheels — torch 2.6+ moved
-# default builds to cu124. unsloth-zoo's pin (torch<2.11, >=2.4) is satisfied.
-$PIP_INSTALL \
-    --index-url https://download.pytorch.org/whl/cu121 \
-    --extra-index-url https://pypi.org/simple \
-    "torch==2.5.1" \
-    "torchvision==0.20.1" \
-    "torchaudio==2.5.1"
+# Assumes modern NVIDIA driver (570+) on the host so cu128 wheels from
+# default PyPI work. If you land on a stale Hyperbolic image with driver
+# 535, either run `sudo apt-get install -y nvidia-driver-570 && sudo reboot`
+# or look at git history for the cu121 fallback path (commit 4bc14e1).
+$PIP_INSTALL "torch" "torchvision" "torchaudio"
 
 # unsloth + unsloth_zoo must come from the SAME source (git main) to keep
 # their internal TRL pins consistent. Their current main requires:
@@ -155,25 +136,14 @@ $PIP_INSTALL \
 # the just-installed torch 2.5.1+cu121 up to the latest version satisfying
 # that range — likely 2.10.x with cu128 wheels — re-introducing the
 # driver-535 incompatibility we just fixed above.
-# Stack pinned for driver 535 / cu121 / torch 2.5.1 compatibility:
-#
-#   driver 535 → cu121 wheels max (no native cu124+ support)
-#   cu121      → torch 2.5.1 max (torch 2.6 dropped cu121 wheels)
-#   torch 2.5  → lacks torch.int1 attribute (added in torch 2.6)
-#   torchao 0.13+ → references torch.int1; would crash transformers import
-#
-# Escape hatch: unsloth_zoo 2025.5.1 predates the torchao dependency and
-# pins transformers to 4.51.3 — a transformers version that doesn't
-# eagerly import torchao at module load. unsloth 2025.5.1 pairs with it.
-# This release set is the last fully torch-2.5-compatible unsloth stack.
-#
-# DO NOT bump these without testing on driver 535. If the host driver
-# is 550+, drop the pins entirely and let unsloth pull current main —
-# everything cascades correctly with cu124 wheels.
-$PIP_INSTALL \
-    "unsloth==2025.5.1" \
-    "unsloth_zoo==2025.5.1" \
-    "trl>=0.12.0" \
+# unsloth + unsloth_zoo from git main. With modern torch (2.10+ cu128),
+# their transitive deps (transformers, trl, torchao) resolve cleanly.
+# Don't add explicit version pins for transformers/trl/torchao here —
+# unsloth's pyproject pins them to a consistent set, and adding our own
+# pins on top is what caused the multi-hour resolver conflict on 2026-05-11.
+$PIP_INSTALL --upgrade \
+    "unsloth_zoo @ git+https://github.com/unslothai/unsloth-zoo.git" \
+    "unsloth[colab-new] @ git+https://github.com/unslothai/unsloth.git" \
     "peft>=0.12.0" \
     "bitsandbytes>=0.43.0" \
     "accelerate>=1.0.0" \
