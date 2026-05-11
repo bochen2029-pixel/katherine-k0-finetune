@@ -115,10 +115,23 @@ $PIP_INSTALL \
     "torchvision==0.25.0" \
     "torchaudio==2.10.0"
 
-$PIP_INSTALL \
+# unsloth + unsloth_zoo must come from the SAME source (git main) to keep
+# their internal TRL pins consistent. Their current main requires:
+#   trl>=0.18.2,!=0.19.0,<=0.24.0
+#   unsloth_zoo>=2026.4.8
+# If we let pip pull unsloth_zoo from PyPI, it may resolve to an older
+# release whose TRL pin (trl<0.14) clashes with unsloth main's TRL pin
+# (trl>=0.18.2). pip then reports an unsatisfiable conflict.
+#
+# --upgrade-strategy=eager forces pip to upgrade ALL transitive deps
+# even when an older version technically satisfies the constraint —
+# this overrides stale partial-install state from prior bootstrap
+# attempts that may have written incompatible packages into ~/.local.
+$PIP_INSTALL --upgrade --upgrade-strategy=eager \
+    "unsloth_zoo @ git+https://github.com/unslothai/unsloth-zoo.git" \
     "unsloth[colab-new] @ git+https://github.com/unslothai/unsloth.git" \
     "transformers>=4.50.0" \
-    "trl>=0.12.0" \
+    "trl>=0.18.2,!=0.19.0,<=0.24.0" \
     "peft>=0.12.0" \
     "bitsandbytes>=0.43.0" \
     "accelerate>=1.0.0" \
@@ -128,12 +141,6 @@ $PIP_INSTALL \
     "protobuf" \
     "xformers" \
     "gguf>=0.10.0"
-# TRL upper bound removed (was <0.14.0) because unsloth's current main
-# requires trl>=0.14.0 — pip resolver dies on the conflict. The
-# DPOTrainer kwarg rename (tokenizer= → processing_class=) is now
-# handled defensively in scripts/dpo_k0_v2.py via inspect.signature,
-# which works against both old (tokenizer=) and new (processing_class=)
-# TRL APIs without pinning either side.
 
 # When pip --user installs binaries (hf CLI, etc.), they land in ~/.local/bin.
 # Make sure that's on PATH within this shell so the post-install verification
