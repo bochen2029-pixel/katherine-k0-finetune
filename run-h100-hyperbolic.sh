@@ -195,7 +195,11 @@ echo
 echo "============================================================"
 echo "[1/2] Bootstrapping environment via bootstrap-runpod.sh"
 echo "============================================================"
-curl -fsSL https://raw.githubusercontent.com/bochen2029-pixel/katherine-k0-finetune/master/bootstrap-runpod.sh | bash
+# Cache-bust the bootstrap URL with a timestamp query string. raw.githubusercontent.com
+# fronts via Fastly with a 5-minute per-edge-node TTL, which means a fresh push
+# can race with an edge node still serving the old content. Adding ?ts=<epoch>
+# treats each request as a distinct cache key and forces origin fetch.
+curl -fsSL "https://raw.githubusercontent.com/bochen2029-pixel/katherine-k0-finetune/master/bootstrap-runpod.sh?ts=$(date +%s)" | bash
 
 REPO_DIR="${HOME}/katherine-k0-finetune"
 if [ ! -d "$REPO_DIR" ]; then
