@@ -134,7 +134,56 @@ echo
 
 if command -v nvidia-smi >/dev/null; then
     echo "  GPU(s):"
-    nvidia-smi --query-gpu=name,memory.total,driver_version --format=csv,noheader | sed 's/^/    /'
+    if GPU_INFO=$(nvidia-smi --query-gpu=name,memory.total,driver_version --format=csv,noheader 2>&1); then
+        echo "$GPU_INFO" | sed 's/^/    /'
+    else
+        # nvidia-smi failed; surface the raw error and diagnose common patterns.
+        echo "    nvidia-smi reported:" >&2
+        echo "$GPU_INFO" | sed 's/^/      /' >&2
+        if echo "$GPU_INFO" | grep -qE "Driver/library version mismatch|NVML library version"; then
+            cat >&2 <<'NVML_DIAG'
+
+  ============================================================
+  NVIDIA driver/library version mismatch detected.
+  ============================================================
+  This is a Hyperbolic.xyz host configuration issue, not a
+  problem with the training scripts. The training cannot start
+  until nvidia-smi works on this instance.
+
+  Step 1: Find out what kernel the host actually runs:
+    cat /proc/driver/nvidia/version
+
+  Step 2: Try, in order of cost (lowest first):
+
+    A) Reload kernel modules (works on bare-metal, not on most
+       container/VM setups but cheap to try):
+         sudo modprobe -r nvidia_uvm nvidia_drm nvidia_modeset nvidia
+         sudo modprobe nvidia
+         sudo modprobe nvidia_uvm
+         nvidia-smi
+
+    B) Install userspace utils matching the host kernel module.
+       Suppose Step 1 said "Kernel Module 550.127.05" — then:
+         sudo apt-get update
+         sudo apt-get install -y nvidia-utils-550
+         nvidia-smi
+       Pick the major version (e.g. 535, 550, 560) matching the
+       kernel module.
+
+    C) Terminate this Hyperbolic instance and provision a fresh
+       one. Hyperbolic's Ubuntu images sometimes ship with stale
+       nvidia userspace vs the running host kernel. A fresh pod
+       often arrives with matching versions.
+
+  Once nvidia-smi prints a GPU table successfully, re-run the
+  single-line command from your shell. No code changes needed.
+  ============================================================
+NVML_DIAG
+            exit 2
+        fi
+        echo "    (nvidia-smi failed with an unrecognized error)" >&2
+        exit 1
+    fi
 else
     echo "  WARN: nvidia-smi not on PATH; bootstrap will re-check." >&2
 fi
