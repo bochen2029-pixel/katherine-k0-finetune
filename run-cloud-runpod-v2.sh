@@ -30,6 +30,30 @@ set -uo pipefail
 cd "$(dirname "$0")"
 
 # ---------------------------------------------------------------------------
+# Self-contained environment setup (works whether bootstrap ran or was skipped)
+# ---------------------------------------------------------------------------
+
+# Pip --user installs binaries (hf CLI, accelerate, etc.) under ~/.local/bin.
+# Bootstrap exports this, but if the user skips bootstrap and invokes this
+# launcher directly, the parent shell won't have it. Defensively add here.
+if [ -d "$HOME/.local/bin" ]; then
+    case ":$PATH:" in
+        *":$HOME/.local/bin:"*) ;;
+        *) export PATH="$HOME/.local/bin:$PATH" ;;
+    esac
+fi
+
+# Python binary: Hyperbolic's Ubuntu images ship python3 but no python symlink.
+# RunPod's pytorch image has both. Resolve at runtime so the inline pipeline
+# below works on either.
+PY=$(command -v python3 2>/dev/null || command -v python 2>/dev/null || true)
+if [ -z "$PY" ]; then
+    echo "ERROR: neither python3 nor python found on PATH." >&2
+    exit 1
+fi
+echo "[env] PATH includes \$HOME/.local/bin; python: $PY"
+
+# ---------------------------------------------------------------------------
 # Configuration (env-overridable)
 # ---------------------------------------------------------------------------
 # Default tier = 2500 (CLEAN: inc_001/002/003 from prior careful sessions).
@@ -209,7 +233,7 @@ exec bash ./_supervise-cloud.sh \
         if [ \"$SKIP_SFT\" = \"0\" ]; then
             echo
             echo '[stage 1] v2 SFT (FastVisionModel — preserves vision tower)'
-            python scripts/finetune_k0_v2.py \\
+            $PY scripts/finetune_k0_v2.py \\
                 --data \"$DATA_SFT\" \\
                 --output \"$SFT_ADAPTER\" \\
                 --model \"$BASE_MODEL\" \\
@@ -229,7 +253,7 @@ exec bash ./_supervise-cloud.sh \
         if [ \"$SKIP_DPO\" = \"0\" ] && [ -f \"$DATA_DPO\" ]; then
             echo
             echo '[stage 2] v2 DPO'
-            python scripts/dpo_k0_v2.py \\
+            $PY scripts/dpo_k0_v2.py \\
                 --data \"$DATA_DPO\" \\
                 --sft-adapter \"$SFT_ADAPTER\" \\
                 --output \"$DPO_ADAPTER\" \\
@@ -249,7 +273,7 @@ exec bash ./_supervise-cloud.sh \
         if [ \"$SKIP_GGUF\" = \"0\" ]; then
             echo
             echo '[stage 3] merge + GGUF (3 quants, vision tower preserved)'
-            python merge_and_gguf.py \\
+            $PY merge_and_gguf.py \\
                 --adapter \"\$FINAL_ADAPTER\" \\
                 --gguf-base-dir \"$GGUF_BASE_DIR\" \\
                 --quants $GGUF_QUANTS \\
@@ -261,7 +285,7 @@ exec bash ./_supervise-cloud.sh \
         if [ \"$SKIP_PUSH\" = \"0\" ] && [ \"$HF_SYNC_ENABLED\" = \"1\" ]; then
             echo
             echo '[stage 4] HF push'
-            python push_to_hf.py \\
+            $PY push_to_hf.py \\
                 --bucket \"$HF_BUCKET\" \\
                 --sft-adapter \"$SFT_ADAPTER\" \\
                 --dpo-adapter \"$DPO_ADAPTER\" \\
