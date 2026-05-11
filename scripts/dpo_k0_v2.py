@@ -29,6 +29,7 @@ Usage:
         --sft-adapter adapters/k0_v2_sft_t500 --output adapters/k0_v2_dpo_t500
 """
 import argparse
+import inspect
 import os
 import re
 import sys
@@ -36,6 +37,20 @@ import sys
 from unsloth import FastVisionModel
 from datasets import load_dataset
 from trl import DPOTrainer, DPOConfig
+
+
+# TRL 0.14+ renamed the DPOTrainer tokenizer= kwarg to processing_class=.
+# We detect which one the installed TRL accepts and use it. Works across
+# old (tokenizer=) and new (processing_class=) TRL APIs without requiring
+# a version pin.
+def _tokenizer_kwarg_name():
+    sig = inspect.signature(DPOTrainer.__init__)
+    if 'processing_class' in sig.parameters:
+        return 'processing_class'
+    return 'tokenizer'
+
+
+_DPO_TOKENIZER_KWARG = _tokenizer_kwarg_name()
 
 
 # Same regex as scripts/finetune_k0_v2.py. Qwen3.5's chat template injects
@@ -199,13 +214,15 @@ def main():
         bf16=True,
     )
 
-    trainer = DPOTrainer(
+    trainer_kwargs = dict(
         model=model,
         ref_model=None,                     # uses adapter-disabled forward as reference (PEFT trick)
         args=dpo_config,
         train_dataset=ds,
-        tokenizer=tokenizer,
     )
+    trainer_kwargs[_DPO_TOKENIZER_KWARG] = tokenizer
+    print(f"[trl-compat] DPOTrainer kwarg for tokenizer: {_DPO_TOKENIZER_KWARG}")
+    trainer = DPOTrainer(**trainer_kwargs)
 
     print()
     print(f"[train] DPO v2: {args.epochs} epochs × {len(ds)} pairs / "

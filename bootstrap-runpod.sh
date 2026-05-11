@@ -118,7 +118,7 @@ $PIP_INSTALL \
 $PIP_INSTALL \
     "unsloth[colab-new] @ git+https://github.com/unslothai/unsloth.git" \
     "transformers>=4.50.0" \
-    "trl>=0.12.0,<0.14.0" \
+    "trl>=0.12.0" \
     "peft>=0.12.0" \
     "bitsandbytes>=0.43.0" \
     "accelerate>=1.0.0" \
@@ -128,6 +128,12 @@ $PIP_INSTALL \
     "protobuf" \
     "xformers" \
     "gguf>=0.10.0"
+# TRL upper bound removed (was <0.14.0) because unsloth's current main
+# requires trl>=0.14.0 — pip resolver dies on the conflict. The
+# DPOTrainer kwarg rename (tokenizer= → processing_class=) is now
+# handled defensively in scripts/dpo_k0_v2.py via inspect.signature,
+# which works against both old (tokenizer=) and new (processing_class=)
+# TRL APIs without pinning either side.
 
 # When pip --user installs binaries (hf CLI, etc.), they land in ~/.local/bin.
 # Make sure that's on PATH within this shell so the post-install verification
