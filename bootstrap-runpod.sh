@@ -72,10 +72,24 @@ echo "[3/6] Cloning repo..."
 if [ -d "$REPO_DIR/.git" ]; then
     echo "  repo already at $REPO_DIR; pulling latest"
     cd "$REPO_DIR"
-    git pull --ff-only
+    # The bootstrap chmod +x's tracked scripts further down. With Linux's
+    # default core.filemode=true, git records the mode change as a local
+    # modification and `git pull --ff-only` refuses to merge. Disabling
+    # core.filemode tells git to ignore mode bits — chmod no longer
+    # creates phantom modifications.
+    git config core.filemode false
+    # If the ff-only pull still trips on a real content drift, force-align
+    # to origin/master. Rented instances are reproducible-from-clean, so
+    # nuking any uncommitted local state is the correct behavior.
+    if ! git pull --ff-only 2>&1; then
+        echo "  WARN: ff-only pull failed; force-aligning to origin/master"
+        git fetch origin master
+        git reset --hard origin/master
+    fi
 else
     git clone "$REPO_URL" "$REPO_DIR"
     cd "$REPO_DIR"
+    git config core.filemode false
 fi
 echo "[3/6] In: $(pwd)"
 
