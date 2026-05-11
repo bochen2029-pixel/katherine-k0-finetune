@@ -119,7 +119,12 @@ $PIP_INSTALL --upgrade pip
 # default PyPI work. If you land on a stale Hyperbolic image with driver
 # 535, either run `sudo apt-get install -y nvidia-driver-570 && sudo reboot`
 # or look at git history for the cu121 fallback path (commit 4bc14e1).
-$PIP_INSTALL "torch" "torchvision" "torchaudio"
+#
+# --force-reinstall: if a prior partial install left torch 2.5.1+cu121
+# in ~/.local (which has happened on iterative debugging), plain
+# `pip install torch` would skip the upgrade since pip sees torch as
+# "already installed". force-reinstall guarantees we land on latest cu128.
+$PIP_INSTALL --force-reinstall "torch" "torchvision" "torchaudio"
 
 # unsloth + unsloth_zoo must come from the SAME source (git main) to keep
 # their internal TRL pins consistent. Their current main requires:
