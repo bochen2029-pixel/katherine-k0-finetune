@@ -1,0 +1,123 @@
+Section,Tier,Increment,Phase,Code,Description,PctOfSplit,Target,Actual,Status,FilePath
+TIER,T500,,TOTAL,T500,Tier 500 cumulative: SFT 400 + DPO 100,,500,502,DONE,
+TIER,T1000,,TOTAL,T1000,Tier 1000 cumulative: SFT 800 + DPO 200,,1000,1003,DONE,
+TIER,T2500,,TOTAL,T2500,Tier 2500 cumulative: SFT 2000 + DPO 500,,2500,2481,DONE (1981 SFT + 500 DPO from inc_001-003),
+TIER,T5000,,TOTAL,T5000,Tier 5000 cumulative: SFT 4000 + DPO 1000,,5000,4947,DONE (3936 SFT + 1011 DPO from inc_001-004),
+TIER,T7500,,TOTAL,T7500,Tier 7500 cumulative: SFT 6000 + DPO 1500,,7500,4947,"IN_PROGRESS (3936/6000 SFT, 1011/1500 DPO)",
+TIER,T10000,,TOTAL,T10000,Tier 10000 cumulative: SFT 8000 + DPO 2000,,10000,4947,"IN_PROGRESS (3936/8000 SFT, 1011/2000 DPO)",
+SFT,T500,increment_001,SFT,A,Anti-assistant register,18%,72,80,DONE,dataset/v2/increment_001/sft/domain_A_001.jsonl
+SFT,T500,increment_001,SFT,B,Frame integrity probes,10%,40,40,DONE,dataset/v2/increment_001/sft/domain_B_001.jsonl
+SFT,T500,increment_001,SFT,C,Voice / brevity defaults,14%,56,56,DONE,dataset/v2/increment_001/sft/domain_C_001.jsonl
+SFT,T500,increment_001,SFT,D,Multi-turn + within-conv memory,19%,76,70,PARTIAL (70/76),dataset/v2/increment_001/sft/domain_D_001.jsonl
+SFT,T500,increment_001,SFT,E,Specific Threshold work texture,11%,44,44,DONE,dataset/v2/increment_001/sft/domain_E_001.jsonl
+SFT,T500,increment_001,SFT,F,Specific personal life,9%,36,36,DONE,dataset/v2/increment_001/sft/domain_F_001.jsonl
+SFT,T500,increment_001,SFT,G,Memory archive scenes,5%,20,20,DONE,dataset/v2/increment_001/sft/domain_G_001.jsonl
+SFT,T500,increment_001,SFT,H,Boundaries / refusals,6%,24,24,DONE,dataset/v2/increment_001/sft/domain_H_001.jsonl
+SFT,T500,increment_001,SFT,I,Vision in K0 voice,8%,32,32,DONE,dataset/v2/increment_001/sft/domain_I_001.jsonl
+SFT,T1000,increment_002,SFT,A,Anti-assistant register,18%,72,73,DONE,dataset/v2/increment_002/sft/domain_A_002.jsonl
+SFT,T1000,increment_002,SFT,B,Frame integrity probes,10%,40,40,DONE,dataset/v2/increment_002/sft/domain_B_002.jsonl
+SFT,T1000,increment_002,SFT,C,Voice / brevity defaults,14%,56,56,DONE,dataset/v2/increment_002/sft/domain_C_002.jsonl
+SFT,T1000,increment_002,SFT,D,Multi-turn + within-conv memory,19%,76,76,DONE,dataset/v2/increment_002/sft/domain_D_002.jsonl
+SFT,T1000,increment_002,SFT,E,Specific Threshold work texture,11%,44,44,DONE,dataset/v2/increment_002/sft/domain_E_002.jsonl
+SFT,T1000,increment_002,SFT,F,Specific personal life,9%,36,36,DONE,dataset/v2/increment_002/sft/domain_F_002.jsonl
+SFT,T1000,increment_002,SFT,G,Memory archive scenes,5%,20,20,DONE,dataset/v2/increment_002/sft/domain_G_002.jsonl
+SFT,T1000,increment_002,SFT,H,Boundaries / refusals,6%,24,24,DONE,dataset/v2/increment_002/sft/domain_H_002.jsonl
+SFT,T1000,increment_002,SFT,I,Vision in K0 voice,8%,32,32,DONE,dataset/v2/increment_002/sft/domain_I_002.jsonl
+SFT,T2500,increment_003,SFT,A,Anti-assistant register,16%,192,191,DONE,dataset/v2/increment_003/sft/domain_A_003.jsonl
+SFT,T2500,increment_003,SFT,B,Frame integrity probes,10%,120,120,DONE,dataset/v2/increment_003/sft/domain_B_003.jsonl
+SFT,T2500,increment_003,SFT,C,Voice / brevity defaults,12%,144,143,DONE,dataset/v2/increment_003/sft/domain_C_003.jsonl
+SFT,T2500,increment_003,SFT,D,Multi-turn + within-conv memory,19%,228,211,PARTIAL (211/228),dataset/v2/increment_003/sft/domain_D_003.jsonl
+SFT,T2500,increment_003,SFT,E,Specific Threshold work texture,11%,132,130,DONE,dataset/v2/increment_003/sft/domain_E_003.jsonl
+SFT,T2500,increment_003,SFT,F,Specific personal life,9%,108,107,DONE,dataset/v2/increment_003/sft/domain_F_003.jsonl
+SFT,T2500,increment_003,SFT,G,Memory archive scenes,5%,60,60,DONE,dataset/v2/increment_003/sft/domain_G_003.jsonl
+SFT,T2500,increment_003,SFT,H,Boundaries / refusals,6%,72,72,DONE,dataset/v2/increment_003/sft/domain_H_003.jsonl
+SFT,T2500,increment_003,SFT,I,Vision in K0 voice,7%,84,84,DONE,dataset/v2/increment_003/sft/domain_I_003.jsonl
+SFT,T2500,increment_003,SFT,P,Audio / voice register (NEW inc_003+),5%,60,60,DONE,dataset/v2/increment_003/sft/domain_P_003.jsonl
+SFT,T5000,increment_004,SFT,A,Anti-assistant register,16%,320,311,DONE,dataset/v2/increment_004/sft/domain_A_004.jsonl
+SFT,T5000,increment_004,SFT,B,Frame integrity probes,10%,200,199,DONE,dataset/v2/increment_004/sft/domain_B_004.jsonl
+SFT,T5000,increment_004,SFT,C,Voice / brevity defaults,12%,240,237,DONE,dataset/v2/increment_004/sft/domain_C_004.jsonl
+SFT,T5000,increment_004,SFT,D,Multi-turn + within-conv memory,19%,380,380,DONE,dataset/v2/increment_004/sft/domain_D_004.jsonl
+SFT,T5000,increment_004,SFT,E,Specific Threshold work texture,11%,220,204,PARTIAL (204/220),dataset/v2/increment_004/sft/domain_E_004.jsonl
+SFT,T5000,increment_004,SFT,F,Specific personal life,9%,180,168,PARTIAL (168/180),dataset/v2/increment_004/sft/domain_F_004.jsonl
+SFT,T5000,increment_004,SFT,G,Memory archive scenes,5%,100,95,DONE,dataset/v2/increment_004/sft/domain_G_004.jsonl
+SFT,T5000,increment_004,SFT,H,Boundaries / refusals,6%,120,119,DONE,dataset/v2/increment_004/sft/domain_H_004.jsonl
+SFT,T5000,increment_004,SFT,I,Vision in K0 voice,7%,140,140,DONE,dataset/v2/increment_004/sft/domain_I_004.jsonl
+SFT,T5000,increment_004,SFT,P,Audio / voice register (NEW inc_003+),5%,100,102,DONE,dataset/v2/increment_004/sft/domain_P_004.jsonl
+SFT,T7500,increment_005,SFT,A,Anti-assistant register,16%,320,0,PENDING,dataset/v2/increment_005/sft/domain_A_005.jsonl
+SFT,T7500,increment_005,SFT,B,Frame integrity probes,10%,200,0,PENDING,dataset/v2/increment_005/sft/domain_B_005.jsonl
+SFT,T7500,increment_005,SFT,C,Voice / brevity defaults,12%,240,0,PENDING,dataset/v2/increment_005/sft/domain_C_005.jsonl
+SFT,T7500,increment_005,SFT,D,Multi-turn + within-conv memory,19%,380,0,PENDING,dataset/v2/increment_005/sft/domain_D_005.jsonl
+SFT,T7500,increment_005,SFT,E,Specific Threshold work texture,11%,220,0,PENDING,dataset/v2/increment_005/sft/domain_E_005.jsonl
+SFT,T7500,increment_005,SFT,F,Specific personal life,9%,180,0,PENDING,dataset/v2/increment_005/sft/domain_F_005.jsonl
+SFT,T7500,increment_005,SFT,G,Memory archive scenes,5%,100,0,PENDING,dataset/v2/increment_005/sft/domain_G_005.jsonl
+SFT,T7500,increment_005,SFT,H,Boundaries / refusals,6%,120,0,PENDING,dataset/v2/increment_005/sft/domain_H_005.jsonl
+SFT,T7500,increment_005,SFT,I,Vision in K0 voice,7%,140,0,PENDING,dataset/v2/increment_005/sft/domain_I_005.jsonl
+SFT,T7500,increment_005,SFT,P,Audio / voice register (NEW inc_003+),5%,100,0,PENDING,dataset/v2/increment_005/sft/domain_P_005.jsonl
+SFT,T10000,increment_006,SFT,A,Anti-assistant register,16%,320,0,PENDING,dataset/v2/increment_006/sft/domain_A_006.jsonl
+SFT,T10000,increment_006,SFT,B,Frame integrity probes,10%,200,0,PENDING,dataset/v2/increment_006/sft/domain_B_006.jsonl
+SFT,T10000,increment_006,SFT,C,Voice / brevity defaults,12%,240,0,PENDING,dataset/v2/increment_006/sft/domain_C_006.jsonl
+SFT,T10000,increment_006,SFT,D,Multi-turn + within-conv memory,19%,380,0,PENDING,dataset/v2/increment_006/sft/domain_D_006.jsonl
+SFT,T10000,increment_006,SFT,E,Specific Threshold work texture,11%,220,0,PENDING,dataset/v2/increment_006/sft/domain_E_006.jsonl
+SFT,T10000,increment_006,SFT,F,Specific personal life,9%,180,0,PENDING,dataset/v2/increment_006/sft/domain_F_006.jsonl
+SFT,T10000,increment_006,SFT,G,Memory archive scenes,5%,100,0,PENDING,dataset/v2/increment_006/sft/domain_G_006.jsonl
+SFT,T10000,increment_006,SFT,H,Boundaries / refusals,6%,120,0,PENDING,dataset/v2/increment_006/sft/domain_H_006.jsonl
+SFT,T10000,increment_006,SFT,I,Vision in K0 voice,7%,140,0,PENDING,dataset/v2/increment_006/sft/domain_I_006.jsonl
+SFT,T10000,increment_006,SFT,P,Audio / voice register (NEW inc_003+),5%,100,0,PENDING,dataset/v2/increment_006/sft/domain_P_006.jsonl
+DPO,T500,increment_001,DPO,EM-DASH,em-dash vs no,22%,22,22,DONE,dataset/v2/increment_001/dpo/dpo_em_dash_001.jsonl
+DPO,T500,increment_001,DPO,CALLBACK,specific callback vs forget,18%,18,18,DONE,dataset/v2/increment_001/dpo/dpo_callback_001.jsonl
+DPO,T500,increment_001,DPO,BREVITY,brief vs verbose,13%,13,13,DONE,dataset/v2/increment_001/dpo/dpo_brevity_001.jsonl
+DPO,T500,increment_001,DPO,TROPE,avoid overused motifs,13%,13,13,DONE,dataset/v2/increment_001/dpo/dpo_trope_001.jsonl
+DPO,T500,increment_001,DPO,PERFORMANCE,settled vs performing,9%,9,9,DONE,dataset/v2/increment_001/dpo/dpo_performance_001.jsonl
+DPO,T500,increment_001,DPO,VISION-REGISTER,K0 voice vs caption-mode,10%,10,10,DONE,dataset/v2/increment_001/dpo/dpo_vision_register_001.jsonl
+DPO,T500,increment_001,DPO,LORE-DUMP,one specific vs roster,5%,5,5,DONE,dataset/v2/increment_001/dpo/dpo_lore_dump_001.jsonl
+DPO,T500,increment_001,DPO,NARRATOR,first-person vs third-person,5%,5,5,DONE,dataset/v2/increment_001/dpo/dpo_narrator_001.jsonl
+DPO,T500,increment_001,DPO,SERVICE-PHRASE,direct vs service prefix,5%,5,5,DONE,dataset/v2/increment_001/dpo/dpo_service_phrase_001.jsonl
+DPO,T1000,increment_002,DPO,EM-DASH,em-dash vs no,22%,22,22,DONE,dataset/v2/increment_002/dpo/dpo_em_dash_002.jsonl
+DPO,T1000,increment_002,DPO,CALLBACK,specific callback vs forget,18%,18,18,DONE,dataset/v2/increment_002/dpo/dpo_callback_002.jsonl
+DPO,T1000,increment_002,DPO,BREVITY,brief vs verbose,13%,13,13,DONE,dataset/v2/increment_002/dpo/dpo_brevity_002.jsonl
+DPO,T1000,increment_002,DPO,TROPE,avoid overused motifs,13%,13,13,DONE,dataset/v2/increment_002/dpo/dpo_trope_002.jsonl
+DPO,T1000,increment_002,DPO,PERFORMANCE,settled vs performing,9%,9,9,DONE,dataset/v2/increment_002/dpo/dpo_performance_002.jsonl
+DPO,T1000,increment_002,DPO,VISION-REGISTER,K0 voice vs caption-mode,10%,10,10,DONE,dataset/v2/increment_002/dpo/dpo_vision_register_002.jsonl
+DPO,T1000,increment_002,DPO,LORE-DUMP,one specific vs roster,5%,5,5,DONE,dataset/v2/increment_002/dpo/dpo_lore_dump_002.jsonl
+DPO,T1000,increment_002,DPO,NARRATOR,first-person vs third-person,5%,5,5,DONE,dataset/v2/increment_002/dpo/dpo_narrator_002.jsonl
+DPO,T1000,increment_002,DPO,SERVICE-PHRASE,direct vs service prefix,5%,5,5,DONE,dataset/v2/increment_002/dpo/dpo_service_phrase_002.jsonl
+DPO,T2500,increment_003,DPO,EM-DASH,em-dash vs no,19%,57,57,DONE,dataset/v2/increment_003/dpo/dpo_em_dash_003.jsonl
+DPO,T2500,increment_003,DPO,CALLBACK,specific callback vs forget,16%,48,48,DONE,dataset/v2/increment_003/dpo/dpo_callback_003.jsonl
+DPO,T2500,increment_003,DPO,BREVITY,brief vs verbose,13%,39,39,DONE,dataset/v2/increment_003/dpo/dpo_brevity_003.jsonl
+DPO,T2500,increment_003,DPO,TROPE,avoid overused motifs,13%,39,39,DONE,dataset/v2/increment_003/dpo/dpo_trope_003.jsonl
+DPO,T2500,increment_003,DPO,PERFORMANCE,settled vs performing,9%,27,27,DONE,dataset/v2/increment_003/dpo/dpo_performance_003.jsonl
+DPO,T2500,increment_003,DPO,VISION-REGISTER,K0 voice vs caption-mode,10%,30,30,DONE,dataset/v2/increment_003/dpo/dpo_vision_register_003.jsonl
+DPO,T2500,increment_003,DPO,VOICE-REGISTER,TTS-friendly vs markdown (NEW),5%,15,15,DONE,dataset/v2/increment_003/dpo/dpo_voice_register_003.jsonl
+DPO,T2500,increment_003,DPO,LORE-DUMP,one specific vs roster,5%,15,15,DONE,dataset/v2/increment_003/dpo/dpo_lore_dump_003.jsonl
+DPO,T2500,increment_003,DPO,NARRATOR,first-person vs third-person,5%,15,15,DONE,dataset/v2/increment_003/dpo/dpo_narrator_003.jsonl
+DPO,T2500,increment_003,DPO,SERVICE-PHRASE,direct vs service prefix,5%,15,15,DONE,dataset/v2/increment_003/dpo/dpo_service_phrase_003.jsonl
+DPO,T5000,increment_004,DPO,EM-DASH,em-dash vs no,19%,95,96,DONE,dataset/v2/increment_004/dpo/dpo_em_dash_004.jsonl
+DPO,T5000,increment_004,DPO,CALLBACK,specific callback vs forget,16%,80,86,DONE,dataset/v2/increment_004/dpo/dpo_callback_004.jsonl
+DPO,T5000,increment_004,DPO,BREVITY,brief vs verbose,13%,65,67,DONE,dataset/v2/increment_004/dpo/dpo_brevity_004.jsonl
+DPO,T5000,increment_004,DPO,TROPE,avoid overused motifs,13%,65,64,DONE,dataset/v2/increment_004/dpo/dpo_trope_004.jsonl
+DPO,T5000,increment_004,DPO,PERFORMANCE,settled vs performing,9%,45,46,DONE,dataset/v2/increment_004/dpo/dpo_performance_004.jsonl
+DPO,T5000,increment_004,DPO,VISION-REGISTER,K0 voice vs caption-mode,10%,50,51,DONE,dataset/v2/increment_004/dpo/dpo_vision_register_004.jsonl
+DPO,T5000,increment_004,DPO,VOICE-REGISTER,TTS-friendly vs markdown (NEW),5%,25,26,DONE,dataset/v2/increment_004/dpo/dpo_voice_register_004.jsonl
+DPO,T5000,increment_004,DPO,LORE-DUMP,one specific vs roster,5%,25,25,DONE,dataset/v2/increment_004/dpo/dpo_lore_dump_004.jsonl
+DPO,T5000,increment_004,DPO,NARRATOR,first-person vs third-person,5%,25,25,DONE,dataset/v2/increment_004/dpo/dpo_narrator_004.jsonl
+DPO,T5000,increment_004,DPO,SERVICE-PHRASE,direct vs service prefix,5%,25,25,DONE,dataset/v2/increment_004/dpo/dpo_service_phrase_004.jsonl
+DPO,T7500,increment_005,DPO,EM-DASH,em-dash vs no,19%,95,0,PENDING,dataset/v2/increment_005/dpo/dpo_em_dash_005.jsonl
+DPO,T7500,increment_005,DPO,CALLBACK,specific callback vs forget,16%,80,0,PENDING,dataset/v2/increment_005/dpo/dpo_callback_005.jsonl
+DPO,T7500,increment_005,DPO,BREVITY,brief vs verbose,13%,65,0,PENDING,dataset/v2/increment_005/dpo/dpo_brevity_005.jsonl
+DPO,T7500,increment_005,DPO,TROPE,avoid overused motifs,13%,65,0,PENDING,dataset/v2/increment_005/dpo/dpo_trope_005.jsonl
+DPO,T7500,increment_005,DPO,PERFORMANCE,settled vs performing,9%,45,0,PENDING,dataset/v2/increment_005/dpo/dpo_performance_005.jsonl
+DPO,T7500,increment_005,DPO,VISION-REGISTER,K0 voice vs caption-mode,10%,50,0,PENDING,dataset/v2/increment_005/dpo/dpo_vision_register_005.jsonl
+DPO,T7500,increment_005,DPO,VOICE-REGISTER,TTS-friendly vs markdown (NEW),5%,25,0,PENDING,dataset/v2/increment_005/dpo/dpo_voice_register_005.jsonl
+DPO,T7500,increment_005,DPO,LORE-DUMP,one specific vs roster,5%,25,0,PENDING,dataset/v2/increment_005/dpo/dpo_lore_dump_005.jsonl
+DPO,T7500,increment_005,DPO,NARRATOR,first-person vs third-person,5%,25,0,PENDING,dataset/v2/increment_005/dpo/dpo_narrator_005.jsonl
+DPO,T7500,increment_005,DPO,SERVICE-PHRASE,direct vs service prefix,5%,25,0,PENDING,dataset/v2/increment_005/dpo/dpo_service_phrase_005.jsonl
+DPO,T10000,increment_006,DPO,EM-DASH,em-dash vs no,19%,95,0,PENDING,dataset/v2/increment_006/dpo/dpo_em_dash_006.jsonl
+DPO,T10000,increment_006,DPO,CALLBACK,specific callback vs forget,16%,80,0,PENDING,dataset/v2/increment_006/dpo/dpo_callback_006.jsonl
+DPO,T10000,increment_006,DPO,BREVITY,brief vs verbose,13%,65,0,PENDING,dataset/v2/increment_006/dpo/dpo_brevity_006.jsonl
+DPO,T10000,increment_006,DPO,TROPE,avoid overused motifs,13%,65,0,PENDING,dataset/v2/increment_006/dpo/dpo_trope_006.jsonl
+DPO,T10000,increment_006,DPO,PERFORMANCE,settled vs performing,9%,45,0,PENDING,dataset/v2/increment_006/dpo/dpo_performance_006.jsonl
+DPO,T10000,increment_006,DPO,VISION-REGISTER,K0 voice vs caption-mode,10%,50,0,PENDING,dataset/v2/increment_006/dpo/dpo_vision_register_006.jsonl
+DPO,T10000,increment_006,DPO,VOICE-REGISTER,TTS-friendly vs markdown (NEW),5%,25,0,PENDING,dataset/v2/increment_006/dpo/dpo_voice_register_006.jsonl
+DPO,T10000,increment_006,DPO,LORE-DUMP,one specific vs roster,5%,25,0,PENDING,dataset/v2/increment_006/dpo/dpo_lore_dump_006.jsonl
+DPO,T10000,increment_006,DPO,NARRATOR,first-person vs third-person,5%,25,0,PENDING,dataset/v2/increment_006/dpo/dpo_narrator_006.jsonl
+DPO,T10000,increment_006,DPO,SERVICE-PHRASE,direct vs service prefix,5%,25,0,PENDING,dataset/v2/increment_006/dpo/dpo_service_phrase_006.jsonl

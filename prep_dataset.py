@@ -1,4 +1,16 @@
 """
+DEPRECATED v1 LEGACY (2026-05-10).
+
+This v1 data-prep script built data/k0_canonical.jsonl from raw Katherine
+exports at C:\\Katherine\\JSONLs\\. v2 generation is in-conversation via Opus 4.7
+directly into dataset/v2/increment_NNN/ — no raw-export prep step.
+
+For v2 cumulative tier assembly see scripts/build_cumulative.py.
+
+---
+
+Original v1 docstring:
+
 prep_dataset.py — build canonical k0 datasets from raw Katherine JSONL exports.
 
 Input:  C:\\Katherine\\JSONLs\\*.jsonl  (~38 files, ~6,164 lines, mixed schema)

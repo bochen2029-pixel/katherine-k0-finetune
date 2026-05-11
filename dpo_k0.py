@@ -1,4 +1,18 @@
 """
+DEPRECATED v1 LEGACY (2026-05-10).
+
+This is the v1 DPO trainer. Preserved for historical reference and the v1
+training run (bochen2079/katherine-k0-qwen3.5-9b on HF). Imports
+`unsloth.FastModel` which silently strips the vision tower from the merged
+GGUF. DO NOT USE for v2 training.
+
+For v2 SFT use scripts/finetune_k0_v2.py (FastVisionModel, vision-preserving).
+For v2 DPO no trainer exists yet; see dataset/v2/TODO.md "v2 DPO trainer build".
+
+---
+
+Original v1 docstring:
+
 Stage 2 — DPO trainer for Katherine k0, on top of the SFT adapter.
 
 180 curated chosen/rejected pairs from k0_dpo_only.jsonl (system-stripped).

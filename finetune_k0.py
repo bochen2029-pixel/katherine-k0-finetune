@@ -1,4 +1,16 @@
 """
+DEPRECATED v1 LEGACY (2026-05-10).
+
+This is the v1 SFT trainer. Preserved for historical reference and the v1
+training run. Uses `unsloth.FastModel` which silently DROPS the vision tower
+from the merged GGUF. DO NOT USE for v2 training — produces vision-broken model.
+
+For v2 SFT use scripts/finetune_k0_v2.py (FastVisionModel, vision-preserving).
+
+---
+
+Original v1 docstring:
+
 Stage 1 — QLoRA SFT trainer for Katherine k0 on Qwen3.5-9B.
 
 Hyperparameters (from CLOUD.md derivation):
