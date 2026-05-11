@@ -12,7 +12,20 @@
 
 ## Section 0: MANDATORY COLD-START
 
-This section is structurally enforced. Compacted-memory failures have already cost real artifacts: a 2026-05-10 contradiction in the v2 soul doc (James's playing duration: "twenty years" in v1 verbatim vs "thirty-seven years" in v2 expansion, same section, same paragraph adjacency) was caught only on a self-audit triggered by operator instruction. The discipline below prevents recurrence.
+This section is structurally enforced via the bootloader at `scripts/k0_cold_start.py` + the PreToolUse hook at `scripts/k0_cold_start_hook.sh` (configured in `.claude/settings.json`). After reading the canon files below, run `python scripts/k0_cold_start.py` to write the session sentinel. The hook BLOCKS Write/Edit on `dataset/v2/**` and canon files until the sentinel is valid for this session. This is the structural fix for the inc_004 contamination incident (2026-05-10) where 2466 traces were generated post-compaction without canon read.
+
+The discipline below describes the WHAT. The bootloader enforces the IF. Both exist because compacted memory failures cost real artifacts (the 37-vs-20 James duration; the inc_004 confabulation; the Qwen3.5 empty-think bug rediscovered three times).
+
+### Known recurring gotchas (smoke-tested by bootloader)
+
+The bootloader runs assertions for these. If any returns, fix the underlying issue, do not bypass:
+
+| Gotcha | Memory entry | What the bootloader checks |
+|---|---|---|
+| Qwen3.5 chat template injects empty `<think></think>` even with `enable_thinking=False` (THIRD time learned) | `~/.claude/.../memory/reference_qwen35_empty_think_tags.md` | `EMPTY_THINK_RE` strip present in `scripts/finetune_k0_v2.py` |
+| FastModel strips vision tower from merged GGUF (v1 bug, fixed in v2) | `~/.claude/.../memory/reference_unsloth_vision_gguf.md` | v2 trainers import `FastVisionModel`, not `FastModel` |
+| Em-dash leak into K0 corpus (banned by operator 2026-05-10) | (in this file, §B3) | No em-dashes in any cumulative tier `sft_train.jsonl` |
+| Cold-start protocol skipped post-compaction (cost 2466 traces in inc_004) | `~/.claude/.../memory/feedback_k0_post_compaction_reread_soul_doc.md` | (the bootloader IS the fix) |
 
 ### Read these before any K0 work
 

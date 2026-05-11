@@ -1,0 +1,17 @@
+{
+  "_comment_purpose": "K0 fine-tune project Claude Code settings. The hooks here STRUCTURALLY ENFORCE the cold-start protocol from CLAUDE.md §0. Without a valid sentinel from scripts/k0_cold_start.py, Write/Edit on canon-protected paths is blocked. This is the bootloader operator requested 2026-05-10 after inc_004 contamination.",
+  "_comment_bypass": "Bypass requires editing this file, which is loud and visible to operator. Do not bypass without explicit operator authorization for the specific session.",
+  "hooks": {
+    "PreToolUse": [
+      {
+        "matcher": "Write|Edit",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "bash $CLAUDE_PROJECT_DIR/scripts/k0_cold_start_hook.sh"
+          }
+        ]
+      }
+    ]
+  }
+}
