@@ -26,6 +26,7 @@ Usage:
 """
 import argparse
 import os
+import re
 import sys
 
 # Unsloth MUST import before transformers/peft/trl
@@ -33,6 +34,14 @@ from unsloth import FastVisionModel
 from datasets import load_dataset
 from trl import SFTTrainer, SFTConfig
 from transformers import DataCollatorForSeq2Seq
+
+# Qwen3.5's chat template inserts empty <think></think> tags whenever the
+# assistant turn is rendered, even with enable_thinking=False. These are
+# TEMPLATE STRUCTURE, not training content. K0 v1 trained on the same
+# input and produced fine results. Strip them before the FATAL check so
+# the check still catches REAL non-empty thinking blocks (which would
+# indicate a generator confusion) but allows the empty template artifacts.
+EMPTY_THINK_RE = re.compile(r'<think>\s*</think>\s*', flags=re.MULTILINE)
 
 
 def do_train(args, model, tokenizer):
@@ -82,6 +91,10 @@ def do_train(args, model, tokenizer):
                 add_generation_prompt=False,
                 enable_thinking=False,   # K0 reasons in prose, not in tagged blocks
             )
+            # Strip Qwen3.5 chat template's empty <think></think> artifacts.
+            # Real (non-empty) think blocks would survive and trip the FATAL
+            # check below; this only removes the empty template insertions.
+            text = EMPTY_THINK_RE.sub('', text)
             out.append(text)
         return {"text": out}
 
