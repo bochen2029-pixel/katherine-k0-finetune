@@ -148,11 +148,14 @@ $PIP_INSTALL \
 # release whose TRL pin (trl<0.14) clashes with unsloth main's TRL pin
 # (trl>=0.18.2). pip then reports an unsatisfiable conflict.
 #
-# --upgrade-strategy=eager forces pip to upgrade ALL transitive deps
-# even when an older version technically satisfies the constraint —
-# this overrides stale partial-install state from prior bootstrap
-# attempts that may have written incompatible packages into ~/.local.
-$PIP_INSTALL --upgrade --upgrade-strategy=eager \
+# --upgrade (without --upgrade-strategy=eager) refreshes the explicitly
+# named packages (unsloth, unsloth_zoo) from git main but does NOT cascade
+# upgrades into their dependencies. Important: if --upgrade-strategy=eager
+# were set, pip would see unsloth-zoo's pin (torch<2.11,>=2.4) and bump
+# the just-installed torch 2.5.1+cu121 up to the latest version satisfying
+# that range — likely 2.10.x with cu128 wheels — re-introducing the
+# driver-535 incompatibility we just fixed above.
+$PIP_INSTALL --upgrade \
     "unsloth_zoo @ git+https://github.com/unslothai/unsloth-zoo.git" \
     "unsloth[colab-new] @ git+https://github.com/unslothai/unsloth.git" \
     "transformers>=4.50.0" \
